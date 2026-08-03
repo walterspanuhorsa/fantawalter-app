@@ -5,12 +5,9 @@ import { supabase } from "@/lib/supabase";
 export type PlayerRow = Record<string, unknown>;
 
 const PAGE_SIZE = 1000;
+const EXCLUDED_COLUMNS = new Set(["strategieall"]);
 
-const EXCLUDED_COLUMNS = new Set([
-  "strategieall",
-]);
-
-function sanitizePlayer(row: PlayerRow): PlayerRow {
+function sanitizePlayerRow(row: PlayerRow): PlayerRow {
   return Object.fromEntries(
     Object.entries(row).filter(
       ([columnName]) => !EXCLUDED_COLUMNS.has(columnName),
@@ -23,12 +20,13 @@ export async function loadPlayers(): Promise<PlayerRow[]> {
   let from = 0;
 
   while (true) {
+    const to = from + PAGE_SIZE - 1;
     const { data, error } = await supabase
       .schema("public")
       .from("data_ready_for_app")
       .select("*")
       .order("nome", { ascending: true })
-      .range(from, from + PAGE_SIZE - 1);
+      .range(from, to);
 
     if (error) {
       throw new Error(
@@ -37,10 +35,7 @@ export async function loadPlayers(): Promise<PlayerRow[]> {
     }
 
     const currentPage = (data ?? []) as PlayerRow[];
-
-    players.push(
-      ...currentPage.map(sanitizePlayer),
-    );
+    players.push(...currentPage.map(sanitizePlayerRow));
 
     if (currentPage.length < PAGE_SIZE) {
       break;
@@ -52,18 +47,46 @@ export async function loadPlayers(): Promise<PlayerRow[]> {
   return players;
 }
 
+export async function loadLastUpdate(): Promise<string | null> {
+  const { data, error } = await supabase
+    .schema("public")
+    .from("last_update")
+    .select("last_update")
+    .order("last_update", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(
+      `Errore nel caricamento dell'ultimo aggiornamento: ${error.message}`,
+    );
+  }
+
+  const value = data?.last_update;
+
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  return String(value);
+}
+
 export function getStrategyColumns(
   players: PlayerRow[],
 ): string[] {
-  const columns = new Set<string>();
+  const strategyColumns = new Set<string>();
 
   for (const player of players) {
     for (const columnName of Object.keys(player)) {
       if (columnName.startsWith("strategia_")) {
-        columns.add(columnName);
+        strategyColumns.add(columnName);
       }
     }
   }
 
-  return Array.from(columns).sort();
+  return Array.from(strategyColumns).sort((first, second) =>
+    first.localeCompare(second, "it", {
+      sensitivity: "base",
+    }),
+  );
 }

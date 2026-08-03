@@ -8,6 +8,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 
+import PayPalSupportButton from "@/components/paypal-support-button";
 import PlayerCell from "@/components/player-cell";
 import PlayerTooltip from "@/components/player-tooltip";
 import SquadPanel from "@/components/squad-panel";
@@ -33,6 +34,7 @@ import {
 interface AuctionAssistantProps {
   initialPlayers: PlayerRow[];
   strategyColumns: string[];
+  lastUpdate: string | null;
 }
 
 interface ColumnDefinition {
@@ -265,45 +267,35 @@ function readPurchasePrices(
   return nextPrices;
 }
 
-function getLatestDataUpdate(
-  players: PlayerRow[],
-): Date | null {
-  const candidateColumns = [
-    "updated_at",
-    "data_aggiornamento",
-    "ultimo_aggiornamento",
-    "loaded_at",
-  ];
-
-  let latestTimestamp = 0;
-
-  for (const player of players) {
-    for (const columnName of candidateColumns) {
-      const rawValue = player[columnName];
-
-      if (
-        typeof rawValue !== "string" &&
-        !(rawValue instanceof Date)
-      ) {
-        continue;
-      }
-
-      const timestamp = new Date(rawValue).getTime();
-
-      if (Number.isFinite(timestamp)) {
-        latestTimestamp = Math.max(latestTimestamp, timestamp);
-      }
-    }
+function formatLastUpdate(value: string | null): string {
+  if (!value) {
+    return "Non disponibile";
   }
 
-  return latestTimestamp > 0
-    ? new Date(latestTimestamp)
-    : null;
+  const normalizedValue =
+    value.includes(" ") && !value.includes("T")
+      ? value.replace(" ", "T")
+      : value;
+  const parsedDate = new Date(normalizedValue);
+
+  if (!Number.isFinite(parsedDate.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("it-IT", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Rome",
+  }).format(parsedDate);
 }
 
 export default function AuctionAssistant({
   initialPlayers,
   strategyColumns,
+  lastUpdate,
 }: AuctionAssistantProps) {
   const [roleFilter, setRoleFilter] = useState("");
   const [teamFilter, setTeamFilter] = useState("");
@@ -330,7 +322,7 @@ export default function AuctionAssistant({
     useState<string[]>([]);
 
   const [isBinOpen, setIsBinOpen] = useState(false);
-  const [activeHelpTopic, setActiveHelpTopic] =
+  const [hoveredHelpTopic, setHoveredHelpTopic] =
     useState<HelpTopic | null>(null);
 
   const [roleLimits, setRoleLimits] = useState<RoleLimits>(
@@ -430,11 +422,6 @@ export default function AuctionAssistant({
   const groupedOrderedColumns = useMemo(
     () => [...orderedMainColumns, ...orderedStrategyColumns],
     [orderedMainColumns, orderedStrategyColumns],
-  );
-
-  const latestDataUpdate = useMemo(
-    () => getLatestDataUpdate(initialPlayers),
-    [initialPlayers],
   );
 
   const existingPlayerKeySet = useMemo(
@@ -655,28 +642,6 @@ export default function AuctionAssistant({
       document.body.style.overflow = previousOverflow;
     };
   }, [isBinOpen]);
-
-  useEffect(() => {
-    if (!activeHelpTopic) {
-      return;
-    }
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    function closeOnEscape(event: KeyboardEvent): void {
-      if (event.key === "Escape") {
-        setActiveHelpTopic(null);
-      }
-    }
-
-    window.addEventListener("keydown", closeOnEscape);
-
-    return () => {
-      window.removeEventListener("keydown", closeOnEscape);
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [activeHelpTopic]);
 
   const visibleColumns = useMemo(
     () =>
@@ -1004,7 +969,7 @@ export default function AuctionAssistant({
     setDeletedPlayerKeys([]);
     setHoveredPlayer(null);
     setIsBinOpen(false);
-    setActiveHelpTopic(null);
+    setHoveredHelpTopic(null);
     setInitialBudget(500);
     setRecordPurchasePrice(false);
     setPurchasePrices({});
@@ -1305,6 +1270,11 @@ export default function AuctionAssistant({
           .fantawalter-squad-panel {
             padding: 12px !important;
           }
+
+          .fantawalter-configuration-header {
+            align-items: stretch !important;
+            flex-direction: column !important;
+          }
         }
       `}</style>
 
@@ -1313,18 +1283,33 @@ export default function AuctionAssistant({
           className="fantawalter-main-panel"
           style={containerStyle}
         >
-          <details
-            open={configurationOpen}
-            onToggle={(event) =>
-              setConfigurationOpen(event.currentTarget.open)
-            }
-            style={configurationPanelStyle}
-          >
-            <summary style={configurationSummaryStyle}>
-              ⚙️ Configurazione
-            </summary>
+          <section style={configurationPanelStyle}>
+            <div
+              className="fantawalter-configuration-header"
+              style={configurationHeaderRowStyle}
+            >
+              <button
+                type="button"
+                aria-expanded={configurationOpen}
+                onClick={() =>
+                  setConfigurationOpen((currentValue) => !currentValue)
+                }
+                style={configurationToggleButtonStyle}
+              >
+                <span aria-hidden="true" style={sectionArrowStyle}>
+                  {configurationOpen ? "▼" : "▶"}
+                </span>
+                <span>⚙️ Configurazione</span>
+              </button>
 
-            <div style={configurationTopRowStyle}>
+              <div style={supportButtonsStyle}>
+                <PayPalSupportButton />
+              </div>
+            </div>
+
+            {configurationOpen && (
+              <>
+                <div style={configurationTopRowStyle}>
               <div style={configurationLeftActionsStyle}>
                 <label style={configurationFieldStyle}>
                   <span style={labelStyle}>Budget iniziale</span>
@@ -1351,21 +1336,37 @@ export default function AuctionAssistant({
                 <div style={actionWithHelpStyle}>
                   <button
                     type="button"
+                    aria-describedby={
+                      hoveredHelpTopic === "resetAuction"
+                        ? "reset-auction-help"
+                        : undefined
+                    }
                     onClick={resetAuction}
+                    onMouseEnter={() =>
+                      setHoveredHelpTopic("resetAuction")
+                    }
+                    onMouseLeave={() => setHoveredHelpTopic(null)}
+                    onFocus={() =>
+                      setHoveredHelpTopic("resetAuction")
+                    }
+                    onBlur={() => setHoveredHelpTopic(null)}
                     style={resetAuctionButtonStyle}
                   >
                     Azzera asta
                   </button>
 
-                  <button
-                    type="button"
-                    aria-label="Informazioni su Azzera asta"
-                    title="Che cosa fa Azzera asta?"
-                    onClick={() => setActiveHelpTopic("resetAuction")}
-                    style={helpIconButtonStyle}
-                  >
-                    i
-                  </button>
+                  {hoveredHelpTopic === "resetAuction" && (
+                    <span
+                      id="reset-auction-help"
+                      role="tooltip"
+                      style={{
+                        ...helpTooltipStyle,
+                        left: 0,
+                      }}
+                    >
+                      {HELP_MESSAGES.resetAuction.description}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -1373,11 +1374,24 @@ export default function AuctionAssistant({
                 <button
                   type="button"
                   aria-pressed={recordPurchasePrice}
+                  aria-describedby={
+                    hoveredHelpTopic === "purchasePrice"
+                      ? "purchase-price-help"
+                      : undefined
+                  }
                   onClick={() =>
                     setRecordPurchasePrice((currentValue) =>
                       !currentValue
                     )
                   }
+                  onMouseEnter={() =>
+                    setHoveredHelpTopic("purchasePrice")
+                  }
+                  onMouseLeave={() => setHoveredHelpTopic(null)}
+                  onFocus={() =>
+                    setHoveredHelpTopic("purchasePrice")
+                  }
+                  onBlur={() => setHoveredHelpTopic(null)}
                   style={{
                     ...purchasePriceToggleStyle,
                     ...(recordPurchasePrice
@@ -1396,15 +1410,18 @@ export default function AuctionAssistant({
                   </span>
                 </button>
 
-                <button
-                  type="button"
-                  aria-label="Informazioni sulla registrazione dei prezzi"
-                  title="Che cosa fa Registra prezzi di acquisto?"
-                  onClick={() => setActiveHelpTopic("purchasePrice")}
-                  style={helpIconButtonStyle}
-                >
-                  i
-                </button>
+                {hoveredHelpTopic === "purchasePrice" && (
+                  <span
+                    id="purchase-price-help"
+                    role="tooltip"
+                    style={{
+                      ...helpTooltipStyle,
+                      right: 0,
+                    }}
+                  >
+                    {HELP_MESSAGES.purchasePrice.description}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -1482,7 +1499,9 @@ export default function AuctionAssistant({
                 </div>
               </section>
             )}
-          </details>
+              </>
+            )}
+          </section>
 
           <details
             open={columnsVisibilityOpen}
@@ -1629,51 +1648,13 @@ export default function AuctionAssistant({
 
           <div style={summaryStyle}>
             <span>
-              Budget iniziale: <strong>{initialBudget} crediti</strong>
-            </span>
-
-            {latestDataUpdate && (
-              <span>
-                Dati aggiornati:{" "}
-                <strong>
-                  {latestDataUpdate.toLocaleString("it-IT")}
-                </strong>
-              </span>
-            )}
-
-            <span>
-              Giocatori visualizzati: {" "}
-              <strong>{displayedPlayers.length}</strong> su {" "}
-              {availablePlayersCount} disponibili
+              Giocatori nella lista {" "}
+              <strong>{availablePlayersCount}</strong>
             </span>
 
             <span>
-              Giocatori acquistati: {" "}
-              <strong>{purchasedPlayers.length}</strong>
-            </span>
-
-            <span>
-              Giocatori eliminati: {" "}
-              <strong>{deletedPlayers.length}</strong>
-            </span>
-
-            <span>
-              Strategie rilevate: {" "}
-              <strong>{strategyColumns.length}</strong>
-            </span>
-
-            <span>
-              Ordinamento: {" "}
-              <strong>
-                {
-                  allColumns.find(
-                    (column) => column.key === sortColumn,
-                  )?.label
-                }{" "}
-                {sortDirection === "asc"
-                  ? "crescente"
-                  : "decrescente"}
-              </strong>
+              Ultimo aggiornamento: {" "}
+              <strong>{formatLastUpdate(lastUpdate)}</strong>
             </span>
           </div>
 
@@ -1851,44 +1832,6 @@ export default function AuctionAssistant({
         roleBudgets={roleBudgets}
       />
 
-      {activeHelpTopic && (
-        <div
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              setActiveHelpTopic(null);
-            }
-          }}
-          style={modalOverlayStyle}
-        >
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="help-dialog-title"
-            style={helpModalContentStyle}
-          >
-            <div style={modalHeaderStyle}>
-              <h2 id="help-dialog-title" style={{ margin: 0 }}>
-                {HELP_MESSAGES[activeHelpTopic].title}
-              </h2>
-
-              <button
-                type="button"
-                aria-label="Chiudi spiegazione"
-                title="Chiudi"
-                onClick={() => setActiveHelpTopic(null)}
-                style={closeModalButtonStyle}
-              >
-                ×
-              </button>
-            </div>
-
-            <p style={helpDialogTextStyle}>
-              {HELP_MESSAGES[activeHelpTopic].description}
-            </p>
-          </section>
-        </div>
-      )}
-
       {isBinOpen && (
         <div
           role="presentation"
@@ -2022,6 +1965,47 @@ const configurationSummaryStyle: CSSProperties = {
   userSelect: "none",
 };
 
+const configurationHeaderRowStyle: CSSProperties = {
+  minHeight: "48px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  flexWrap: "wrap",
+  gap: "10px",
+};
+
+const configurationToggleButtonStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "7px",
+  padding: "11px 0",
+  border: 0,
+  background: "transparent",
+  color: "#2c3e50",
+  font: "inherit",
+  fontWeight: 800,
+  cursor: "pointer",
+  textAlign: "left",
+};
+
+const supportButtonsStyle: CSSProperties = {
+  minWidth: 0,
+  minHeight: "36px",
+  marginLeft: "auto",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "flex-end",
+  flexShrink: 0,
+};
+
+const sectionArrowStyle: CSSProperties = {
+  width: "12px",
+  display: "inline-flex",
+  justifyContent: "center",
+  fontSize: "0.72rem",
+  lineHeight: 1,
+};
+
 const configurationTopRowStyle: CSSProperties = {
   display: "flex",
   alignItems: "end",
@@ -2039,32 +2023,35 @@ const configurationLeftActionsStyle: CSSProperties = {
 };
 
 const actionWithHelpStyle: CSSProperties = {
+  position: "relative",
   display: "inline-flex",
   alignItems: "center",
-  gap: "6px",
 };
 
 const purchasePriceActionStyle: CSSProperties = {
+  position: "relative",
   marginLeft: "auto",
   display: "flex",
   alignItems: "center",
-  gap: "7px",
 };
 
-const helpIconButtonStyle: CSSProperties = {
-  flexShrink: 0,
-  width: "28px",
-  height: "28px",
-  padding: 0,
+const helpTooltipStyle: CSSProperties = {
+  position: "absolute",
+  top: "calc(100% + 8px)",
+  zIndex: 40,
+  width: "min(320px, calc(100vw - 40px))",
+  padding: "9px 11px",
   borderWidth: "1px",
   borderStyle: "solid",
-  borderColor: "#9aabb9",
-  borderRadius: "50%",
-  background: "#fff",
-  color: "#34495e",
-  fontWeight: 800,
-  fontStyle: "italic",
-  cursor: "pointer",
+  borderColor: "#b8c5d1",
+  borderRadius: "7px",
+  background: "#ffffff",
+  color: "#2c3e50",
+  boxShadow: "0 6px 18px rgba(0, 0, 0, 0.16)",
+  fontSize: "0.82rem",
+  fontWeight: 500,
+  lineHeight: 1.35,
+  pointerEvents: "none",
 };
 
 const configurationFieldStyle: CSSProperties = {
@@ -2320,15 +2307,7 @@ const columnButtonStyle: CSSProperties = {
   cursor: "pointer",
 };
 
-const secondaryButtonStyle: CSSProperties = {
-  padding: "9px 14px",
-  border: 0,
-  borderRadius: "5px",
-  background: "#7f8c8d",
-  color: "#fff",
-  fontWeight: 700,
-  cursor: "pointer",
-};
+
 
 const resetAuctionButtonStyle: CSSProperties = {
   padding: "8px 12px",
@@ -2468,17 +2447,6 @@ const modalContentStyle: CSSProperties = {
   borderRadius: "10px",
   background: "#fff",
   boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
-};
-
-const helpModalContentStyle: CSSProperties = {
-  ...modalContentStyle,
-  width: "min(500px, 100%)",
-};
-
-const helpDialogTextStyle: CSSProperties = {
-  margin: 0,
-  color: "#34495e",
-  lineHeight: 1.55,
 };
 
 const modalHeaderStyle: CSSProperties = {
