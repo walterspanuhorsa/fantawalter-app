@@ -58,7 +58,7 @@ const HELP_MESSAGES: Record<
   purchasePrice: {
     title: "Registra prezzi di acquisto",
     description:
-      "Quando è attivo, verrà richiesto il prezzo di acquisto di ogni giocatore inserito nella tua rosa.",
+      "Attiva nuovi avvisi basati sulla spesa: dovrai inserire il prezzo pagato per ogni giocatore acquistato.",
   },
 };
 
@@ -1431,8 +1431,7 @@ export default function AuctionAssistant({
                   <div>
                     <strong>Budget previsto per ruolo</strong>
                     <p style={roleBudgetHelpStyle}>
-                      Inserendo un tetto di spesa in crediti verranno
-                      attivati anche gli avvisi sulle spese.
+                      Imposta un budget (in crediti) per ciascun ruolo per attivare gli avvisi sulla spesa
                     </p>
                   </div>
 
