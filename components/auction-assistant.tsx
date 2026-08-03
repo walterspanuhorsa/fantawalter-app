@@ -42,6 +42,24 @@ interface ColumnDefinition {
 
 type SortDirection = "asc" | "desc";
 
+type HelpTopic = "resetAuction" | "purchasePrice";
+
+const HELP_MESSAGES: Record<
+  HelpTopic,
+  { title: string; description: string }
+> = {
+  resetAuction: {
+    title: "Azzera asta",
+    description:
+      "Riporta tutta l’app allo stato iniziale: svuota la rosa e il cestino e ripristina budget, filtri, limiti, colonne e configurazioni.",
+  },
+  purchasePrice: {
+    title: "Registra prezzi di acquisto",
+    description:
+      "Quando è attivo, verrà richiesto il prezzo di acquisto di ogni giocatore inserito nella tua rosa.",
+  },
+};
+
 interface PersistedAuctionState {
   initialBudget?: unknown;
   purchasedPlayerKeys?: unknown;
@@ -312,6 +330,8 @@ export default function AuctionAssistant({
     useState<string[]>([]);
 
   const [isBinOpen, setIsBinOpen] = useState(false);
+  const [activeHelpTopic, setActiveHelpTopic] =
+    useState<HelpTopic | null>(null);
 
   const [roleLimits, setRoleLimits] = useState<RoleLimits>(
     () => ({ ...DEFAULT_ROLE_LIMITS }),
@@ -635,6 +655,28 @@ export default function AuctionAssistant({
       document.body.style.overflow = previousOverflow;
     };
   }, [isBinOpen]);
+
+  useEffect(() => {
+    if (!activeHelpTopic) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    function closeOnEscape(event: KeyboardEvent): void {
+      if (event.key === "Escape") {
+        setActiveHelpTopic(null);
+      }
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      window.removeEventListener("keydown", closeOnEscape);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [activeHelpTopic]);
 
   const visibleColumns = useMemo(
     () =>
@@ -962,6 +1004,7 @@ export default function AuctionAssistant({
     setDeletedPlayerKeys([]);
     setHoveredPlayer(null);
     setIsBinOpen(false);
+    setActiveHelpTopic(null);
     setInitialBudget(500);
     setRecordPurchasePrice(false);
     setPurchasePrices({});
@@ -1305,48 +1348,64 @@ export default function AuctionAssistant({
                   />
                 </label>
 
-                <button
-                  type="button"
-                  onClick={resetFilters}
-                  style={secondaryButtonStyle}
-                >
-                  Azzera filtri
-                </button>
+                <div style={actionWithHelpStyle}>
+                  <button
+                    type="button"
+                    onClick={resetAuction}
+                    style={resetAuctionButtonStyle}
+                  >
+                    Azzera asta
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={resetAuction}
-                  style={resetAuctionButtonStyle}
-                >
-                  Azzera asta
-                </button>
+                  <button
+                    type="button"
+                    aria-label="Informazioni su Azzera asta"
+                    title="Che cosa fa Azzera asta?"
+                    onClick={() => setActiveHelpTopic("resetAuction")}
+                    style={helpIconButtonStyle}
+                  >
+                    i
+                  </button>
+                </div>
               </div>
 
-              <button
-                type="button"
-                aria-pressed={recordPurchasePrice}
-                onClick={() =>
-                  setRecordPurchasePrice((currentValue) =>
-                    !currentValue
-                  )
-                }
-                style={{
-                  ...purchasePriceToggleStyle,
-                  ...(recordPurchasePrice
-                    ? purchasePriceToggleActiveStyle
-                    : {}),
-                }}
-              >
-                <span style={purchasePriceToggleIconStyle}>🧾</span>
-                <span>
-                  <strong>Registra prezzi di acquisto</strong>
-                  <small style={optionDescriptionStyle}>
-                    {recordPurchasePrice
-                      ? "Attivo: configura il budget previsto per ruolo."
-                      : "Disattivato: l'acquisto non richiede il prezzo."}
-                  </small>
-                </span>
-              </button>
+              <div style={purchasePriceActionStyle}>
+                <button
+                  type="button"
+                  aria-pressed={recordPurchasePrice}
+                  onClick={() =>
+                    setRecordPurchasePrice((currentValue) =>
+                      !currentValue
+                    )
+                  }
+                  style={{
+                    ...purchasePriceToggleStyle,
+                    ...(recordPurchasePrice
+                      ? purchasePriceToggleActiveStyle
+                      : {}),
+                  }}
+                >
+                  <span style={purchasePriceToggleIconStyle}>🧾</span>
+                  <span>
+                    <strong>Registra prezzi di acquisto</strong>
+                    <small style={optionDescriptionStyle}>
+                      {recordPurchasePrice
+                        ? "Attivo: configura il budget previsto per ruolo."
+                        : "Disattivato: l'acquisto non richiede il prezzo."}
+                    </small>
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  aria-label="Informazioni sulla registrazione dei prezzi"
+                  title="Che cosa fa Registra prezzi di acquisto?"
+                  onClick={() => setActiveHelpTopic("purchasePrice")}
+                  style={helpIconButtonStyle}
+                >
+                  i
+                </button>
+              </div>
             </div>
 
             {recordPurchasePrice && (
@@ -1355,9 +1414,8 @@ export default function AuctionAssistant({
                   <div>
                     <strong>Budget previsto per ruolo</strong>
                     <p style={roleBudgetHelpStyle}>
-                      Inserisci il tetto di spesa pianificato per ogni
-                      reparto. Gli avvisi considerano soltanto i prezzi
-                      effettivamente registrati.
+                      Inserendo un tetto di spesa in crediti verranno
+                      attivati anche gli avvisi sulle spese.
                     </p>
                   </div>
 
@@ -1769,6 +1827,7 @@ export default function AuctionAssistant({
             roleLimits={roleLimits}
             onLimitChange={changeRoleLimit}
             onRemovePlayer={removePurchasedPlayer}
+            onDeletePlayer={deletePlayer}
             recordPurchasePrice={recordPurchasePrice}
             purchasePrices={purchasePrices}
             initialBudget={initialBudget}
@@ -1791,6 +1850,44 @@ export default function AuctionAssistant({
         purchasePrices={purchasePrices}
         roleBudgets={roleBudgets}
       />
+
+      {activeHelpTopic && (
+        <div
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setActiveHelpTopic(null);
+            }
+          }}
+          style={modalOverlayStyle}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="help-dialog-title"
+            style={helpModalContentStyle}
+          >
+            <div style={modalHeaderStyle}>
+              <h2 id="help-dialog-title" style={{ margin: 0 }}>
+                {HELP_MESSAGES[activeHelpTopic].title}
+              </h2>
+
+              <button
+                type="button"
+                aria-label="Chiudi spiegazione"
+                title="Chiudi"
+                onClick={() => setActiveHelpTopic(null)}
+                style={closeModalButtonStyle}
+              >
+                ×
+              </button>
+            </div>
+
+            <p style={helpDialogTextStyle}>
+              {HELP_MESSAGES[activeHelpTopic].description}
+            </p>
+          </section>
+        </div>
+      )}
 
       {isBinOpen && (
         <div
@@ -1872,6 +1969,7 @@ export default function AuctionAssistant({
   );
 }
 
+
 const pageStyle: CSSProperties = {
   minHeight: "100vh",
   padding: "24px",
@@ -1940,18 +2038,48 @@ const configurationLeftActionsStyle: CSSProperties = {
   gap: "12px",
 };
 
+const actionWithHelpStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "6px",
+};
+
+const purchasePriceActionStyle: CSSProperties = {
+  marginLeft: "auto",
+  display: "flex",
+  alignItems: "center",
+  gap: "7px",
+};
+
+const helpIconButtonStyle: CSSProperties = {
+  flexShrink: 0,
+  width: "28px",
+  height: "28px",
+  padding: 0,
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#9aabb9",
+  borderRadius: "50%",
+  background: "#fff",
+  color: "#34495e",
+  fontWeight: 800,
+  fontStyle: "italic",
+  cursor: "pointer",
+};
+
 const configurationFieldStyle: CSSProperties = {
   display: "block",
 };
 
 const purchasePriceToggleStyle: CSSProperties = {
   minHeight: "58px",
-  marginLeft: "auto",
   display: "flex",
   alignItems: "center",
   gap: "10px",
   padding: "9px 13px",
-  border: "1px solid #b8c5d1",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#b8c5d1",
   borderRadius: "8px",
   background: "#fff",
   color: "#2c3e50",
@@ -2122,7 +2250,9 @@ const columnUtilityButtonsStyle: CSSProperties = {
 
 const columnGroupStyle: CSSProperties = {
   padding: "10px",
-  border: "1px solid #e1e6eb",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#e1e6eb",
   borderRadius: "7px",
   background: "#fff",
 };
@@ -2170,8 +2300,9 @@ const dragHandleStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   padding: "0 6px",
-  border: "1px solid #95a5a6",
-  borderRight: 0,
+  borderWidth: "1px 0 1px 1px",
+  borderStyle: "solid",
+  borderColor: "#95a5a6",
   borderRadius: "5px 0 0 5px",
   background: "#ecf0f1",
   color: "#5d6d7e",
@@ -2181,7 +2312,9 @@ const dragHandleStyle: CSSProperties = {
 
 const columnButtonStyle: CSSProperties = {
   padding: "6px 10px",
-  border: "1px solid",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#95a5a6",
   borderRadius: "0 5px 5px 0",
   fontWeight: 700,
   cursor: "pointer",
@@ -2287,11 +2420,16 @@ const actionButtonsStyle: CSSProperties = {
 const buyIconButtonStyle: CSSProperties = {
   width: "28px",
   height: "28px",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
   padding: 0,
-  border: 0,
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#7dcea0",
   borderRadius: "5px",
-  background: "#f39c12",
-  color: "#fff",
+  background: "#d5f5e3",
+  color: "#145a32",
   fontSize: "0.9rem",
   lineHeight: 1,
   cursor: "pointer",
@@ -2330,6 +2468,17 @@ const modalContentStyle: CSSProperties = {
   borderRadius: "10px",
   background: "#fff",
   boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
+};
+
+const helpModalContentStyle: CSSProperties = {
+  ...modalContentStyle,
+  width: "min(500px, 100%)",
+};
+
+const helpDialogTextStyle: CSSProperties = {
+  margin: 0,
+  color: "#34495e",
+  lineHeight: 1.55,
 };
 
 const modalHeaderStyle: CSSProperties = {

@@ -29,6 +29,9 @@ interface SquadPanelProps {
   onRemovePlayer: (
     player: PlayerRow,
   ) => void;
+  onDeletePlayer: (
+    player: PlayerRow,
+  ) => void;
   recordPurchasePrice: boolean;
   purchasePrices: Record<string, number>;
   initialBudget: number;
@@ -527,6 +530,7 @@ export default function SquadPanel({
   roleLimits,
   onLimitChange,
   onRemovePlayer,
+  onDeletePlayer,
   recordPurchasePrice,
   purchasePrices,
   initialBudget,
@@ -674,6 +678,7 @@ export default function SquadPanel({
         <table style={tableStyle}>
           <thead>
             <tr>
+              <th style={headerStyle}>Azioni</th>
               <th style={headerStyle}>R</th>
               <th style={headerStyle}>Squadra</th>
               <th style={headerStyle}>Nome</th>
@@ -696,8 +701,6 @@ export default function SquadPanel({
               {recordPurchasePrice && (
                 <th style={headerStyle}>Prezzo</th>
               )}
-
-              <th style={headerStyle}>Azione</th>
             </tr>
           </thead>
 
@@ -707,6 +710,30 @@ export default function SquadPanel({
 
               return (
                 <tr key={getPlayerKey(player)}>
+                  <td style={cellStyle}>
+                    <div style={rowActionsStyle}>
+                      <button
+                        type="button"
+                        aria-label="Riporta il giocatore nella lista"
+                        title="Riporta nella lista dei giocatori disponibili"
+                        onClick={() => onRemovePlayer(player)}
+                        style={returnToListButtonStyle}
+                      >
+                        ↩
+                      </button>
+
+                      <button
+                        type="button"
+                        aria-label="Sposta il giocatore nel cestino"
+                        title="Sposta nel cestino"
+                        onClick={() => onDeletePlayer(player)}
+                        style={moveToBinButtonStyle}
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </td>
+
                   <td
                     style={{
                       ...cellStyle,
@@ -739,16 +766,6 @@ export default function SquadPanel({
                       {purchasePrices[getPlayerKey(player)] ?? "-"}
                     </td>
                   )}
-
-                  <td style={cellStyle}>
-                    <button
-                      type="button"
-                      onClick={() => onRemovePlayer(player)}
-                      style={removeButtonStyle}
-                    >
-                      Rimuovi
-                    </button>
-                  </td>
                 </tr>
               );
             })}
@@ -1126,13 +1143,39 @@ const emptyCellStyle: CSSProperties = {
   textAlign: "center",
 };
 
-const removeButtonStyle: CSSProperties = {
-  padding: "5px 8px",
+const rowActionsStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "5px",
+};
+
+const returnToListButtonStyle: CSSProperties = {
+  width: "30px",
+  height: "28px",
+  padding: 0,
   border: 0,
   borderRadius: "5px",
-  background: "#e74c3c",
+  background: "#3498db",
   color: "#fff",
-  fontWeight: 700,
+  fontSize: "1rem",
+  fontWeight: 800,
+  lineHeight: 1,
+  cursor: "pointer",
+};
+
+const moveToBinButtonStyle: CSSProperties = {
+  width: "30px",
+  height: "28px",
+  padding: 0,
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#e0b4b4",
+  borderRadius: "5px",
+  background: "#fff5f5",
+  color: "#c0392b",
+  fontSize: "0.82rem",
+  lineHeight: 1,
   cursor: "pointer",
 };
 
