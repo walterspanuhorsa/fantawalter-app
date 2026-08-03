@@ -12,14 +12,21 @@ import PlayerCell from "@/components/player-cell";
 import PlayerTooltip from "@/components/player-tooltip";
 import SquadPanel from "@/components/squad-panel";
 
-import { parseNumericValue } from "@/lib/budget";
+import {
+  calculateCredits,
+  parseNumericValue,
+} from "@/lib/budget";
 import type { PlayerRow } from "@/lib/players";
 
 import {
+  DEFAULT_ROLE_BUDGETS,
   DEFAULT_ROLE_LIMITS,
+  ROLE_ORDER,
+  ROLE_PLURAL_LABELS,
   getPlayerKey,
   getPlayerRole,
   type PlayerRole,
+  type RoleBudgets,
   type RoleLimits,
 } from "@/lib/squad";
 
@@ -41,6 +48,12 @@ interface PersistedAuctionState {
   deletedPlayerKeys?: unknown;
   roleLimits?: unknown;
   visibleColumnKeys?: unknown;
+  columnOrderKeys?: unknown;
+  recordPurchasePrice?: unknown;
+  purchasePrices?: unknown;
+  configurationOpen?: unknown;
+  columnsVisibilityOpen?: unknown;
+  roleBudgets?: unknown;
 }
 
 interface TooltipPointer {
@@ -183,6 +196,93 @@ function readRoleLimits(value: unknown): RoleLimits | null {
   return nextLimits;
 }
 
+function readRoleBudgets(value: unknown): RoleBudgets | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const nextBudgets: RoleBudgets = {
+    ...DEFAULT_ROLE_BUDGETS,
+  };
+
+  for (const role of ROLE_ORDER) {
+    const parsedValue = readNonNegativeInteger(record[role]);
+
+    if (parsedValue !== null) {
+      nextBudgets[role] = parsedValue;
+    }
+  }
+
+  return nextBudgets;
+}
+
+function readBoolean(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null;
+}
+
+function readPurchasePrices(
+  value: unknown,
+  existingPlayerKeySet: Set<string>,
+): Record<string, number> {
+  if (!value || typeof value !== "object") {
+    return {};
+  }
+
+  const nextPrices: Record<string, number> = {};
+
+  for (const [playerKey, rawPrice] of Object.entries(
+    value as Record<string, unknown>,
+  )) {
+    const parsedPrice = readNonNegativeInteger(rawPrice);
+
+    if (
+      existingPlayerKeySet.has(playerKey) &&
+      parsedPrice !== null
+    ) {
+      nextPrices[playerKey] = parsedPrice;
+    }
+  }
+
+  return nextPrices;
+}
+
+function getLatestDataUpdate(
+  players: PlayerRow[],
+): Date | null {
+  const candidateColumns = [
+    "updated_at",
+    "data_aggiornamento",
+    "ultimo_aggiornamento",
+    "loaded_at",
+  ];
+
+  let latestTimestamp = 0;
+
+  for (const player of players) {
+    for (const columnName of candidateColumns) {
+      const rawValue = player[columnName];
+
+      if (
+        typeof rawValue !== "string" &&
+        !(rawValue instanceof Date)
+      ) {
+        continue;
+      }
+
+      const timestamp = new Date(rawValue).getTime();
+
+      if (Number.isFinite(timestamp)) {
+        latestTimestamp = Math.max(latestTimestamp, timestamp);
+      }
+    }
+  }
+
+  return latestTimestamp > 0
+    ? new Date(latestTimestamp)
+    : null;
+}
+
 export default function AuctionAssistant({
   initialPlayers,
   strategyColumns,
@@ -191,6 +291,19 @@ export default function AuctionAssistant({
   const [teamFilter, setTeamFilter] = useState("");
   const [nameSearch, setNameSearch] = useState("");
   const [initialBudget, setInitialBudget] = useState(500);
+  const [recordPurchasePrice, setRecordPurchasePrice] =
+    useState(false);
+  const [purchasePrices, setPurchasePrices] = useState<
+    Record<string, number>
+  >({});
+  const [configurationOpen, setConfigurationOpen] =
+    useState(true);
+  const [columnsVisibilityOpen, setColumnsVisibilityOpen] =
+    useState(true);
+  const [roleBudgets, setRoleBudgets] =
+    useState<RoleBudgets>(() => ({
+      ...DEFAULT_ROLE_BUDGETS,
+    }));
 
   const [purchasedPlayerKeys, setPurchasedPlayerKeys] =
     useState<string[]>([]);
@@ -212,6 +325,12 @@ export default function AuctionAssistant({
 
   const [visibleColumnKeys, setVisibleColumnKeys] =
     useState<string[]>(DEFAULT_VISIBLE_COLUMNS);
+
+  const [columnOrderKeys, setColumnOrderKeys] =
+    useState<string[]>([]);
+
+  const [draggedColumnKey, setDraggedColumnKey] =
+    useState<string | null>(null);
 
   const [storageReady, setStorageReady] = useState(false);
 
@@ -240,6 +359,62 @@ export default function AuctionAssistant({
   const allowedColumnKeySet = useMemo(
     () => new Set(allColumns.map((column) => column.key)),
     [allColumns],
+  );
+
+  const strategyColumnKeySet = useMemo(
+    () => new Set(strategyColumns),
+    [strategyColumns],
+  );
+
+  const orderedColumns = useMemo(() => {
+    const columnsByKey = new Map(
+      allColumns.map((column) => [column.key, column]),
+    );
+
+    const ordered = columnOrderKeys
+      .map((columnKey) => columnsByKey.get(columnKey))
+      .filter(
+        (column): column is ColumnDefinition =>
+          column !== undefined,
+      );
+
+    const orderedKeySet = new Set(
+      ordered.map((column) => column.key),
+    );
+
+    for (const column of allColumns) {
+      if (!orderedKeySet.has(column.key)) {
+        ordered.push(column);
+      }
+    }
+
+    return ordered;
+  }, [allColumns, columnOrderKeys]);
+
+  const orderedMainColumns = useMemo(
+    () =>
+      orderedColumns.filter(
+        (column) => !strategyColumnKeySet.has(column.key),
+      ),
+    [orderedColumns, strategyColumnKeySet],
+  );
+
+  const orderedStrategyColumns = useMemo(
+    () =>
+      orderedColumns.filter((column) =>
+        strategyColumnKeySet.has(column.key),
+      ),
+    [orderedColumns, strategyColumnKeySet],
+  );
+
+  const groupedOrderedColumns = useMemo(
+    () => [...orderedMainColumns, ...orderedStrategyColumns],
+    [orderedMainColumns, orderedStrategyColumns],
+  );
+
+  const latestDataUpdate = useMemo(
+    () => getLatestDataUpdate(initialPlayers),
+    [initialPlayers],
   );
 
   const existingPlayerKeySet = useMemo(
@@ -274,6 +449,45 @@ export default function AuctionAssistant({
         if (savedBudget !== null) {
           setInitialBudget(savedBudget);
         }
+
+        const savedRecordPurchasePrice = readBoolean(
+          parsedState.recordPurchasePrice,
+        );
+
+        if (savedRecordPurchasePrice !== null) {
+          setRecordPurchasePrice(savedRecordPurchasePrice);
+        }
+
+        const savedConfigurationOpen = readBoolean(
+          parsedState.configurationOpen,
+        );
+
+        if (savedConfigurationOpen !== null) {
+          setConfigurationOpen(savedConfigurationOpen);
+        }
+
+        const savedColumnsVisibilityOpen = readBoolean(
+          parsedState.columnsVisibilityOpen,
+        );
+
+        if (savedColumnsVisibilityOpen !== null) {
+          setColumnsVisibilityOpen(savedColumnsVisibilityOpen);
+        }
+
+        const savedRoleBudgets = readRoleBudgets(
+          parsedState.roleBudgets,
+        );
+
+        if (savedRoleBudgets) {
+          setRoleBudgets(savedRoleBudgets);
+        }
+
+        setPurchasePrices(
+          readPurchasePrices(
+            parsedState.purchasePrices,
+            existingPlayerKeySet,
+          ),
+        );
 
         if (Array.isArray(parsedState.purchasedPlayerKeys)) {
           const validPurchasedKeys = Array.from(
@@ -326,6 +540,20 @@ export default function AuctionAssistant({
             setVisibleColumnKeys(validVisibleColumns);
           }
         }
+
+        if (Array.isArray(parsedState.columnOrderKeys)) {
+          const validColumnOrder = Array.from(
+            new Set(
+              parsedState.columnOrderKeys.filter(
+                (value): value is string =>
+                  typeof value === "string" &&
+                  allowedColumnKeySet.has(value),
+              ),
+            ),
+          );
+
+          setColumnOrderKeys(validColumnOrder);
+        }
       } catch (error) {
         console.error(
           "Impossibile leggere lo stato salvato di Fantawalter.",
@@ -352,6 +580,12 @@ export default function AuctionAssistant({
       deletedPlayerKeys,
       roleLimits,
       visibleColumnKeys,
+      columnOrderKeys,
+      recordPurchasePrice,
+      purchasePrices,
+      configurationOpen,
+      columnsVisibilityOpen,
+      roleBudgets,
     };
 
     try {
@@ -372,6 +606,12 @@ export default function AuctionAssistant({
     roleLimits,
     storageReady,
     visibleColumnKeys,
+    columnOrderKeys,
+    recordPurchasePrice,
+    purchasePrices,
+    configurationOpen,
+    columnsVisibilityOpen,
+    roleBudgets,
   ]);
 
   useEffect(() => {
@@ -398,10 +638,10 @@ export default function AuctionAssistant({
 
   const visibleColumns = useMemo(
     () =>
-      allColumns.filter((column) =>
+      groupedOrderedColumns.filter((column) =>
         visibleColumnKeys.includes(column.key),
       ),
-    [allColumns, visibleColumnKeys],
+    [groupedOrderedColumns, visibleColumnKeys],
   );
 
   const roles = useMemo(() => {
@@ -658,12 +898,49 @@ export default function AuctionAssistant({
 
   function showAllColumns(): void {
     setVisibleColumnKeys(
-      allColumns.map((column) => column.key),
+      groupedOrderedColumns.map((column) => column.key),
     );
   }
 
   function restoreDefaultColumns(): void {
     setVisibleColumnKeys(DEFAULT_VISIBLE_COLUMNS);
+    setColumnOrderKeys([]);
+  }
+
+  function reorderColumn(
+    sourceColumnKey: string,
+    targetColumnKey: string,
+  ): void {
+    if (sourceColumnKey === targetColumnKey) {
+      return;
+    }
+
+    const sourceIsStrategy =
+      strategyColumnKeySet.has(sourceColumnKey);
+    const targetIsStrategy =
+      strategyColumnKeySet.has(targetColumnKey);
+
+    /*
+     * Le colonne principali e le strategie restano in due
+     * gruppi distinti; il trascinamento riordina il gruppo.
+     */
+    if (sourceIsStrategy !== targetIsStrategy) {
+      return;
+    }
+
+    const nextOrder = groupedOrderedColumns.map(
+      (column) => column.key,
+    );
+    const sourceIndex = nextOrder.indexOf(sourceColumnKey);
+    const targetIndex = nextOrder.indexOf(targetColumnKey);
+
+    if (sourceIndex < 0 || targetIndex < 0) {
+      return;
+    }
+
+    nextOrder.splice(sourceIndex, 1);
+    nextOrder.splice(targetIndex, 0, sourceColumnKey);
+    setColumnOrderKeys(nextOrder);
   }
 
   function resetFilters(): void {
@@ -686,8 +963,14 @@ export default function AuctionAssistant({
     setHoveredPlayer(null);
     setIsBinOpen(false);
     setInitialBudget(500);
+    setRecordPurchasePrice(false);
+    setPurchasePrices({});
+    setRoleBudgets({ ...DEFAULT_ROLE_BUDGETS });
+    setConfigurationOpen(true);
+    setColumnsVisibilityOpen(true);
     setRoleLimits({ ...DEFAULT_ROLE_LIMITS });
     setVisibleColumnKeys(DEFAULT_VISIBLE_COLUMNS);
+    setColumnOrderKeys([]);
     resetFilters();
     setSortColumn("nome");
     setSortDirection("asc");
@@ -728,6 +1011,79 @@ export default function AuctionAssistant({
       return;
     }
 
+    let purchasePrice: number | null = null;
+
+    if (recordPurchasePrice) {
+      const expectedPercentage =
+        parseNumericValue(player.media_strategie) ??
+        parseNumericValue(player.pma);
+      const expectedPrice =
+        expectedPercentage !== null && expectedPercentage > 0
+          ? calculateCredits(expectedPercentage, initialBudget)
+          : null;
+
+      const rawPrice = window.prompt(
+        `Prezzo di acquisto per ${getTextValue(player, "nome")}:`,
+        expectedPrice !== null ? String(expectedPrice) : "",
+      );
+
+      if (rawPrice === null) {
+        return;
+      }
+
+      const parsedPrice = parseNumericValue(rawPrice);
+
+      if (
+        parsedPrice === null ||
+        parsedPrice < 0 ||
+        !Number.isFinite(parsedPrice)
+      ) {
+        window.alert(
+          "Inserisci un prezzo numerico valido oppure annulla.",
+        );
+        return;
+      }
+
+      purchasePrice = Math.round(parsedPrice);
+
+      const plannedRoleBudget = roleBudgets[role];
+
+      if (plannedRoleBudget > 0) {
+        const currentRoleSpent = purchasedPlayers.reduce(
+          (total, purchasedPlayer) => {
+            if (getPlayerRole(purchasedPlayer) !== role) {
+              return total;
+            }
+
+            return (
+              total +
+              (purchasePrices[getPlayerKey(purchasedPlayer)] ?? 0)
+            );
+          },
+          0,
+        );
+        const projectedRoleSpent =
+          currentRoleSpent + purchasePrice;
+
+        if (projectedRoleSpent > plannedRoleBudget) {
+          const overrun =
+            projectedRoleSpent - plannedRoleBudget;
+          const roleLabel = ROLE_PLURAL_LABELS[role];
+          const confirmed = window.confirm(
+            `Con questo acquisto la spesa per i ${roleLabel} ` +
+              `salirebbe a ${projectedRoleSpent} crediti, ` +
+              `superando di ${overrun} il budget previsto di ` +
+              `${plannedRoleBudget} crediti. Vuoi confermare ` +
+              `comunque l'acquisto?`,
+          );
+
+          if (!confirmed) {
+            return;
+          }
+        }
+      }
+    }
+
     setPurchasedPlayerKeys((currentKeys) => {
       if (currentKeys.includes(playerKey)) {
         return currentKeys;
@@ -735,6 +1091,13 @@ export default function AuctionAssistant({
 
       return [...currentKeys, playerKey];
     });
+
+    if (purchasePrice !== null) {
+      setPurchasePrices((currentPrices) => ({
+        ...currentPrices,
+        [playerKey]: purchasePrice,
+      }));
+    }
   }
 
   function removePurchasedPlayer(player: PlayerRow): void {
@@ -745,6 +1108,12 @@ export default function AuctionAssistant({
         (currentKey) => currentKey !== playerKey,
       ),
     );
+
+    setPurchasePrices((currentPrices) => {
+      const nextPrices = { ...currentPrices };
+      delete nextPrices[playerKey];
+      return nextPrices;
+    });
   }
 
   function deletePlayer(player: PlayerRow): void {
@@ -757,6 +1126,12 @@ export default function AuctionAssistant({
         (currentKey) => currentKey !== playerKey,
       ),
     );
+
+    setPurchasePrices((currentPrices) => {
+      const nextPrices = { ...currentPrices };
+      delete nextPrices[playerKey];
+      return nextPrices;
+    });
 
     setDeletedPlayerKeys((currentKeys) => [
       playerKey,
@@ -786,6 +1161,77 @@ export default function AuctionAssistant({
     }));
   }
 
+  function changeRoleBudget(
+    role: PlayerRole,
+    value: number,
+  ): void {
+    setRoleBudgets((currentBudgets) => ({
+      ...currentBudgets,
+      [role]: value,
+    }));
+  }
+
+  const totalPlannedRoleBudget = ROLE_ORDER.reduce(
+    (total, role) => total + roleBudgets[role],
+    0,
+  );
+  const unallocatedRoleBudget =
+    initialBudget - totalPlannedRoleBudget;
+
+  function renderColumnControls(
+    columns: ColumnDefinition[],
+  ) {
+    return columns.map((column) => {
+      const isVisible = visibleColumnKeys.includes(column.key);
+      const isDragging = draggedColumnKey === column.key;
+
+      return (
+        <div
+          key={column.key}
+          draggable
+          onDragStart={(event) => {
+            setDraggedColumnKey(column.key);
+            event.dataTransfer.effectAllowed = "move";
+          }}
+          onDragOver={(event) => {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "move";
+          }}
+          onDrop={(event) => {
+            event.preventDefault();
+
+            if (draggedColumnKey) {
+              reorderColumn(draggedColumnKey, column.key);
+            }
+
+            setDraggedColumnKey(null);
+          }}
+          onDragEnd={() => setDraggedColumnKey(null)}
+          style={{
+            ...columnDragItemStyle,
+            opacity: isDragging ? 0.45 : 1,
+          }}
+          title="Trascina per spostare la colonna nel suo gruppo"
+        >
+          <span style={dragHandleStyle}>☰</span>
+
+          <button
+            type="button"
+            onClick={() => toggleColumn(column.key)}
+            style={{
+              ...columnButtonStyle,
+              background: isVisible ? "#f1c40f" : "#bdc3c7",
+              borderColor: isVisible ? "#f39c12" : "#95a5a6",
+              color: isVisible ? "#222" : "#555",
+            }}
+          >
+            {column.label}
+          </button>
+        </div>
+      );
+    });
+  }
+
   function getSortIndicator(columnName: string): string {
     if (sortColumn !== columnName) {
       return "";
@@ -795,47 +1241,250 @@ export default function AuctionAssistant({
   }
 
   return (
-    <main style={pageStyle}>
-      <div style={layoutStyle}>
-        <section style={containerStyle}>
-          <details style={configurationPanelStyle}>
+    <main className="fantawalter-page" style={pageStyle}>
+      <style>{`
+        @media (max-width: 1100px) {
+          .fantawalter-layout {
+            grid-template-columns: minmax(0, 1fr) !important;
+          }
+
+          .fantawalter-squad-panel {
+            max-height: none !important;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .fantawalter-page {
+            padding: 10px !important;
+          }
+
+          .fantawalter-main-panel,
+          .fantawalter-squad-panel {
+            padding: 12px !important;
+          }
+        }
+      `}</style>
+
+      <div className="fantawalter-layout" style={layoutStyle}>
+        <section
+          className="fantawalter-main-panel"
+          style={containerStyle}
+        >
+          <details
+            open={configurationOpen}
+            onToggle={(event) =>
+              setConfigurationOpen(event.currentTarget.open)
+            }
+            style={configurationPanelStyle}
+          >
             <summary style={configurationSummaryStyle}>
               ⚙️ Configurazione
             </summary>
 
-            <div style={configurationActionsStyle}>
-              <button
-                type="button"
-                onClick={resetFilters}
-                style={secondaryButtonStyle}
-              >
-                Azzera filtri
-              </button>
+            <div style={configurationTopRowStyle}>
+              <div style={configurationLeftActionsStyle}>
+                <label style={configurationFieldStyle}>
+                  <span style={labelStyle}>Budget iniziale</span>
+
+                  <input
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={initialBudget}
+                    onChange={(event) => {
+                      const value =
+                        event.currentTarget.valueAsNumber;
+
+                      setInitialBudget(
+                        Number.isFinite(value) && value > 0
+                          ? value
+                          : 0,
+                      );
+                    }}
+                    style={{ ...controlStyle, width: "140px" }}
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  style={secondaryButtonStyle}
+                >
+                  Azzera filtri
+                </button>
+
+                <button
+                  type="button"
+                  onClick={resetAuction}
+                  style={resetAuctionButtonStyle}
+                >
+                  Azzera asta
+                </button>
+              </div>
 
               <button
                 type="button"
-                onClick={() => {
-                  setHoveredPlayer(null);
-                  setIsBinOpen(true);
+                aria-pressed={recordPurchasePrice}
+                onClick={() =>
+                  setRecordPurchasePrice((currentValue) =>
+                    !currentValue
+                  )
+                }
+                style={{
+                  ...purchasePriceToggleStyle,
+                  ...(recordPurchasePrice
+                    ? purchasePriceToggleActiveStyle
+                    : {}),
                 }}
-                style={binButtonStyle}
               >
-                Cestino
+                <span style={purchasePriceToggleIconStyle}>🧾</span>
+                <span>
+                  <strong>Registra prezzi di acquisto</strong>
+                  <small style={optionDescriptionStyle}>
+                    {recordPurchasePrice
+                      ? "Attivo: configura il budget previsto per ruolo."
+                      : "Disattivato: l'acquisto non richiede il prezzo."}
+                  </small>
+                </span>
+              </button>
+            </div>
 
-                {deletedPlayers.length > 0 && (
-                  <span style={binBadgeStyle}>
-                    {deletedPlayers.length}
+            {recordPurchasePrice && (
+              <section style={roleBudgetMenuStyle}>
+                <div style={roleBudgetMenuHeaderStyle}>
+                  <div>
+                    <strong>Budget previsto per ruolo</strong>
+                    <p style={roleBudgetHelpStyle}>
+                      Inserisci il tetto di spesa pianificato per ogni
+                      reparto. Gli avvisi considerano soltanto i prezzi
+                      effettivamente registrati.
+                    </p>
+                  </div>
+
+                  <span style={plannedBudgetBadgeStyle}>
+                    {totalPlannedRoleBudget}/{initialBudget}
                   </span>
-                )}
-              </button>
+                </div>
 
-              <button
-                type="button"
-                onClick={resetAuction}
-                style={resetAuctionButtonStyle}
-              >
-                Reimposta asta
-              </button>
+                <div style={roleBudgetInputsStyle}>
+                  {ROLE_ORDER.map((role) => (
+                    <label key={role} style={roleBudgetFieldStyle}>
+                      <span style={labelStyle}>
+                        {role} · {ROLE_PLURAL_LABELS[role]}
+                      </span>
+
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={roleBudgets[role]}
+                        onChange={(event) => {
+                          const value =
+                            event.currentTarget.valueAsNumber;
+
+                          changeRoleBudget(
+                            role,
+                            Number.isFinite(value)
+                              ? Math.max(0, Math.trunc(value))
+                              : 0,
+                          );
+                        }}
+                        style={{ ...controlStyle, width: "120px" }}
+                      />
+                    </label>
+                  ))}
+                </div>
+
+                <div
+                  style={{
+                    ...roleBudgetStatusStyle,
+                    ...(unallocatedRoleBudget < 0
+                      ? roleBudgetStatusWarningStyle
+                      : {}),
+                  }}
+                >
+                  {unallocatedRoleBudget > 0 && (
+                    <>
+                      Restano <strong>{unallocatedRoleBudget}</strong>{" "}
+                      crediti non assegnati ai ruoli.
+                    </>
+                  )}
+
+                  {unallocatedRoleBudget === 0 && (
+                    <>Il budget iniziale è interamente assegnato.</>
+                  )}
+
+                  {unallocatedRoleBudget < 0 && (
+                    <>
+                      La pianificazione supera il budget iniziale di{" "}
+                      <strong>{Math.abs(unallocatedRoleBudget)}</strong>{" "}
+                      crediti.
+                    </>
+                  )}
+                </div>
+              </section>
+            )}
+          </details>
+
+          <details
+            open={columnsVisibilityOpen}
+            onToggle={(event) =>
+              setColumnsVisibilityOpen(event.currentTarget.open)
+            }
+            style={columnsVisibilityPanelStyle}
+          >
+            <summary style={configurationSummaryStyle}>
+              👁️ Visibilità colonne
+            </summary>
+
+            <div style={columnsPanelContentStyle}>
+              <div style={columnsPanelHeaderStyle}>
+                <p style={columnHelpStyle}>
+                  Trascina le colonne per riordinarle nel proprio
+                  gruppo. Clicca sul nome per mostrarle o nasconderle.
+                </p>
+
+                <div style={columnUtilityButtonsStyle}>
+                  <button
+                    type="button"
+                    onClick={showAllColumns}
+                    style={smallButtonStyle}
+                  >
+                    Mostra tutte
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={restoreDefaultColumns}
+                    style={smallButtonStyle}
+                  >
+                    Ripristina predefinite
+                  </button>
+                </div>
+              </div>
+
+              <section style={columnGroupStyle}>
+                <h4 style={columnGroupTitleStyle}>
+                  Colonne principali
+                </h4>
+                <div style={columnButtonsStyle}>
+                  {renderColumnControls(orderedMainColumns)}
+                </div>
+              </section>
+
+              <section style={strategyColumnGroupStyle}>
+                <h4 style={columnGroupTitleStyle}>Strategie</h4>
+
+                {orderedStrategyColumns.length > 0 ? (
+                  <div style={columnButtonsStyle}>
+                    {renderColumnControls(orderedStrategyColumns)}
+                  </div>
+                ) : (
+                  <p style={emptyStrategiesStyle}>
+                    Nessuna colonna strategia rilevata.
+                  </p>
+                )}
+              </section>
             </div>
           </details>
 
@@ -902,91 +1551,37 @@ export default function AuctionAssistant({
               </datalist>
             </label>
 
-            <label>
-              <span style={labelStyle}>Budget iniziale</span>
+            <button
+              type="button"
+              onClick={() => {
+                setHoveredPlayer(null);
+                setIsBinOpen(true);
+              }}
+              style={filterBinButtonStyle}
+            >
+              🗑️ Cestino
 
-              <input
-                type="number"
-                min={1}
-                step={1}
-                value={initialBudget}
-                onChange={(event) => {
-                  const value =
-                    event.currentTarget.valueAsNumber;
-
-                  setInitialBudget(
-                    Number.isFinite(value) && value > 0
-                      ? value
-                      : 0,
-                  );
-                }}
-                style={{ ...controlStyle, width: "140px" }}
-              />
-            </label>
-          </div>
-
-          <div style={columnsPanelStyle}>
-            <div style={columnsPanelHeaderStyle}>
-              <strong>Visibilità colonne</strong>
-
-              <div
-                style={{
-                  display: "flex",
-                  gap: "8px",
-                  flexWrap: "wrap",
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={showAllColumns}
-                  style={smallButtonStyle}
-                >
-                  Mostra tutte
-                </button>
-
-                <button
-                  type="button"
-                  onClick={restoreDefaultColumns}
-                  style={smallButtonStyle}
-                >
-                  Ripristina predefinite
-                </button>
-              </div>
-            </div>
-
-            <div style={columnButtonsStyle}>
-              {allColumns.map((column) => {
-                const isVisible = visibleColumnKeys.includes(
-                  column.key,
-                );
-
-                return (
-                  <button
-                    key={column.key}
-                    type="button"
-                    onClick={() => toggleColumn(column.key)}
-                    style={{
-                      ...columnButtonStyle,
-                      background: isVisible
-                        ? "#f1c40f"
-                        : "#bdc3c7",
-                      borderColor: isVisible
-                        ? "#f39c12"
-                        : "#95a5a6",
-                      color: isVisible ? "#222" : "#555",
-                    }}
-                  >
-                    {column.label}
-                  </button>
-                );
-              })}
-            </div>
+              {deletedPlayers.length > 0 && (
+                <span style={binBadgeStyle}>
+                  {deletedPlayers.length}
+                </span>
+              )}
+            </button>
           </div>
 
           <div style={summaryStyle}>
             <span>
               Budget iniziale: <strong>{initialBudget} crediti</strong>
             </span>
+
+            {latestDataUpdate && (
+              <span>
+                Dati aggiornati:{" "}
+                <strong>
+                  {latestDataUpdate.toLocaleString("it-IT")}
+                </strong>
+              </span>
+            )}
 
             <span>
               Giocatori visualizzati: {" "}
@@ -1165,12 +1760,19 @@ export default function AuctionAssistant({
           </div>
         </section>
 
-        <aside style={rightPanelStyle}>
+        <aside
+          className="fantawalter-squad-panel"
+          style={rightPanelStyle}
+        >
           <SquadPanel
             purchasedPlayers={purchasedPlayers}
             roleLimits={roleLimits}
             onLimitChange={changeRoleLimit}
             onRemovePlayer={removePurchasedPlayer}
+            recordPurchasePrice={recordPurchasePrice}
+            purchasePrices={purchasePrices}
+            initialBudget={initialBudget}
+            roleBudgets={roleBudgets}
           />
         </aside>
       </div>
@@ -1185,6 +1787,9 @@ export default function AuctionAssistant({
         strategyColumns={strategyColumns}
         purchasedPlayers={purchasedPlayers}
         roleLimits={roleLimits}
+        recordPurchasePrice={recordPurchasePrice}
+        purchasePrices={purchasePrices}
+        roleBudgets={roleBudgets}
       />
 
       {isBinOpen && (
@@ -1319,19 +1924,122 @@ const configurationSummaryStyle: CSSProperties = {
   userSelect: "none",
 };
 
-const configurationActionsStyle: CSSProperties = {
+const configurationTopRowStyle: CSSProperties = {
   display: "flex",
-  alignItems: "center",
+  alignItems: "end",
+  justifyContent: "space-between",
   flexWrap: "wrap",
-  gap: "8px",
+  gap: "14px",
   padding: "0 0 14px",
 };
 
-const binButtonStyle: CSSProperties = {
+const configurationLeftActionsStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "end",
+  flexWrap: "wrap",
+  gap: "12px",
+};
+
+const configurationFieldStyle: CSSProperties = {
+  display: "block",
+};
+
+const purchasePriceToggleStyle: CSSProperties = {
+  minHeight: "58px",
+  marginLeft: "auto",
+  display: "flex",
+  alignItems: "center",
+  gap: "10px",
+  padding: "9px 13px",
+  border: "1px solid #b8c5d1",
+  borderRadius: "8px",
+  background: "#fff",
+  color: "#2c3e50",
+  textAlign: "left",
+  cursor: "pointer",
+  boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+};
+
+const purchasePriceToggleActiveStyle: CSSProperties = {
+  borderColor: "#2980b9",
+  background: "#eaf4fb",
+  boxShadow: "0 0 0 2px rgba(41,128,185,0.12)",
+};
+
+const purchasePriceToggleIconStyle: CSSProperties = {
+  fontSize: "1.2rem",
+};
+
+const roleBudgetMenuStyle: CSSProperties = {
+  marginBottom: "14px",
+  padding: "13px",
+  border: "1px solid #c9d8e5",
+  borderRadius: "8px",
+  background: "#fff",
+};
+
+const roleBudgetMenuHeaderStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "start",
+  gap: "12px",
+  marginBottom: "11px",
+};
+
+const roleBudgetHelpStyle: CSSProperties = {
+  margin: "4px 0 0",
+  color: "#637381",
+  fontSize: "0.82rem",
+};
+
+const plannedBudgetBadgeStyle: CSSProperties = {
+  flexShrink: 0,
+  padding: "5px 9px",
+  borderRadius: "999px",
+  background: "#eaf4fb",
+  color: "#2471a3",
+  fontWeight: 800,
+  fontSize: "0.82rem",
+};
+
+const roleBudgetInputsStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))",
+  gap: "10px",
+};
+
+const roleBudgetFieldStyle: CSSProperties = {
+  minWidth: 0,
+};
+
+const roleBudgetStatusStyle: CSSProperties = {
+  marginTop: "10px",
+  padding: "8px 10px",
+  borderRadius: "6px",
+  background: "#f3f8fc",
+  color: "#34495e",
+  fontSize: "0.84rem",
+};
+
+const roleBudgetStatusWarningStyle: CSSProperties = {
+  background: "#ffebee",
+  color: "#b03a2e",
+};
+
+const optionDescriptionStyle: CSSProperties = {
+  display: "block",
+  marginTop: "2px",
+  color: "#637381",
+  fontSize: "0.78rem",
+  fontWeight: 400,
+};
+
+const filterBinButtonStyle: CSSProperties = {
   position: "relative",
-  padding: "8px 12px",
+  minHeight: "40px",
+  padding: "8px 13px",
   border: 0,
-  borderRadius: "5px",
+  borderRadius: "7px",
   background: "#7f8c8d",
   color: "#fff",
   fontWeight: 700,
@@ -1385,12 +2093,16 @@ const controlStyle: CSSProperties = {
   fontSize: "0.95rem",
 };
 
-const columnsPanelStyle: CSSProperties = {
-  padding: "14px",
+const columnsVisibilityPanelStyle: CSSProperties = {
   marginBottom: "14px",
-  background: "#fdfdfd",
-  border: "1px solid #ddd",
+  padding: "0 14px",
+  border: "1px solid #d7dee5",
   borderRadius: "8px",
+  background: "#fdfdfd",
+};
+
+const columnsPanelContentStyle: CSSProperties = {
+  padding: "0 0 14px",
 };
 
 const columnsPanelHeaderStyle: CSSProperties = {
@@ -1402,16 +2114,75 @@ const columnsPanelHeaderStyle: CSSProperties = {
   marginBottom: "10px",
 };
 
+const columnUtilityButtonsStyle: CSSProperties = {
+  display: "flex",
+  gap: "8px",
+  flexWrap: "wrap",
+};
+
+const columnGroupStyle: CSSProperties = {
+  padding: "10px",
+  border: "1px solid #e1e6eb",
+  borderRadius: "7px",
+  background: "#fff",
+};
+
+const strategyColumnGroupStyle: CSSProperties = {
+  ...columnGroupStyle,
+  marginTop: "10px",
+  borderColor: "#d7c8a2",
+  background: "#fffaf0",
+};
+
+const columnGroupTitleStyle: CSSProperties = {
+  margin: "0 0 8px",
+  color: "#2c3e50",
+  fontSize: "0.9rem",
+};
+
+const emptyStrategiesStyle: CSSProperties = {
+  margin: 0,
+  color: "#7f8c8d",
+  fontSize: "0.84rem",
+};
+
+const columnHelpStyle: CSSProperties = {
+  margin: "0 0 9px",
+  color: "#637381",
+  fontSize: "0.82rem",
+};
+
 const columnButtonsStyle: CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
-  gap: "6px",
+  gap: "7px",
+};
+
+const columnDragItemStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "stretch",
+  borderRadius: "5px",
+  cursor: "grab",
+  transition: "opacity 0.15s ease",
+};
+
+const dragHandleStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "0 6px",
+  border: "1px solid #95a5a6",
+  borderRight: 0,
+  borderRadius: "5px 0 0 5px",
+  background: "#ecf0f1",
+  color: "#5d6d7e",
+  fontSize: "0.8rem",
+  userSelect: "none",
 };
 
 const columnButtonStyle: CSSProperties = {
   padding: "6px 10px",
   border: "1px solid",
-  borderRadius: "5px",
+  borderRadius: "0 5px 5px 0",
   fontWeight: 700,
   cursor: "pointer",
 };

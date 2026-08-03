@@ -10,10 +10,12 @@ import { parseNumericValue } from "@/lib/budget";
 import type { PlayerRow } from "@/lib/players";
 import {
   ROLE_ORDER,
+  ROLE_PLURAL_LABELS,
   getPlayerKey,
   getPlayerRole,
   sortSquadPlayers,
   type PlayerRole,
+  type RoleBudgets,
   type RoleLimits,
 } from "@/lib/squad";
 
@@ -27,6 +29,10 @@ interface SquadPanelProps {
   onRemovePlayer: (
     player: PlayerRow,
   ) => void;
+  recordPurchasePrice: boolean;
+  purchasePrices: Record<string, number>;
+  initialBudget: number;
+  roleBudgets: RoleBudgets;
 }
 
 interface RoleStatistics {
@@ -178,6 +184,9 @@ function getAverageColor(average: number): string {
 
 function buildSquadAnalysis(
   players: PlayerRow[],
+  recordPurchasePrice: boolean,
+  purchasePrices: Record<string, number>,
+  roleBudgets: RoleBudgets,
 ): SquadAnalysis {
   const roleStatistics =
     createEmptyRoleStatistics();
@@ -434,6 +443,43 @@ function buildSquadAnalysis(
     }
   }
 
+  if (recordPurchasePrice) {
+    for (const role of ROLE_ORDER) {
+      const statistics = roleStatistics[role];
+      const plannedBudget = roleBudgets[role];
+
+      /*
+       * Anche gli avvisi economici per ruolo iniziano dal
+       * secondo giocatore acquistato nel ruolo.
+       */
+      if (statistics.count < 2 || plannedBudget <= 0) {
+        continue;
+      }
+
+      const roleSpent = players.reduce((total, player) => {
+        if (getPlayerRole(player) !== role) {
+          return total;
+        }
+
+        return total + (purchasePrices[getPlayerKey(player)] ?? 0);
+      }, 0);
+
+      if (roleSpent > plannedBudget) {
+        const overrun = roleSpent - plannedBudget;
+        const roleLabel = ROLE_PLURAL_LABELS[role];
+
+        alerts.push({
+          id: `ROLE_BUDGET_${role}`,
+          level: "red",
+          text:
+            `La spesa per i ${roleLabel} è di ${roleSpent} crediti: ` +
+            `${overrun} oltre il budget previsto di ${plannedBudget} crediti.`,
+          dismissible: false,
+        });
+      }
+    }
+  }
+
   return {
     roleStatistics,
     totalStatistics,
@@ -481,6 +527,10 @@ export default function SquadPanel({
   roleLimits,
   onLimitChange,
   onRemovePlayer,
+  recordPurchasePrice,
+  purchasePrices,
+  initialBudget,
+  roleBudgets,
 }: SquadPanelProps) {
   const [dismissedAlerts, setDismissedAlerts] =
     useState<Set<string>>(() => new Set());
@@ -491,8 +541,19 @@ export default function SquadPanel({
   );
 
   const analysis = useMemo(
-    () => buildSquadAnalysis(purchasedPlayers),
-    [purchasedPlayers],
+    () =>
+      buildSquadAnalysis(
+        purchasedPlayers,
+        recordPurchasePrice,
+        purchasePrices,
+        roleBudgets,
+      ),
+    [
+      purchasedPlayers,
+      recordPurchasePrice,
+      purchasePrices,
+      roleBudgets,
+    ],
   );
 
   const roleCounts = useMemo(() => {
@@ -531,6 +592,14 @@ export default function SquadPanel({
     0,
   );
 
+  const totalSpent = purchasedPlayers.reduce(
+    (total, player) =>
+      total + (purchasePrices[getPlayerKey(player)] ?? 0),
+    0,
+  );
+
+  const remainingBudget = initialBudget - totalSpent;
+
   return (
     <>
       <div style={squadTitleContainerStyle}>
@@ -549,6 +618,28 @@ export default function SquadPanel({
         {" | "}
         A: {roleCounts.A}/{roleLimits.A}
       </p>
+
+      {recordPurchasePrice && (
+        <div style={purchaseBudgetSummaryStyle}>
+          <span>
+            Speso: <strong>{totalSpent}</strong>
+          </span>
+
+          <span>
+            Residuo:{" "}
+            <strong
+              style={{
+                color:
+                  remainingBudget < 0
+                    ? "#c0392b"
+                    : "#2471a3",
+              }}
+            >
+              {remainingBudget}
+            </strong>
+          </span>
+        </div>
+      )}
 
       <div style={configurationStyle}>
         {ROLE_ORDER.map((role) => (
@@ -601,6 +692,11 @@ export default function SquadPanel({
               >
                 FMV Exp
               </th>
+
+              {recordPurchasePrice && (
+                <th style={headerStyle}>Prezzo</th>
+              )}
+
               <th style={headerStyle}>Azione</th>
             </tr>
           </thead>
@@ -637,6 +733,13 @@ export default function SquadPanel({
                   <td style={cellStyle}>
                     {displayValue(player.fmv_exp)}
                   </td>
+
+                  {recordPurchasePrice && (
+                    <td style={priceCellStyle}>
+                      {purchasePrices[getPlayerKey(player)] ?? "-"}
+                    </td>
+                  )}
+
                   <td style={cellStyle}>
                     <button
                       type="button"
@@ -652,7 +755,10 @@ export default function SquadPanel({
 
             {sortedPlayers.length === 0 && (
               <tr>
-                <td colSpan={8} style={emptyCellStyle}>
+                <td
+                  colSpan={recordPurchasePrice ? 9 : 8}
+                  style={emptyCellStyle}
+                >
                   Nessun giocatore acquistato.
                 </td>
               </tr>
@@ -942,6 +1048,27 @@ const squadTitleBadgeStyle: CSSProperties = {
 const counterStyle: CSSProperties = {
   fontWeight: 700,
   color: "#2980b9",
+};
+
+const purchaseBudgetSummaryStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "16px",
+  padding: "9px 11px",
+  marginBottom: "12px",
+  border: "1px solid #d6e4ef",
+  borderRadius: "7px",
+  background: "#f4f9fd",
+  color: "#2c3e50",
+  fontSize: "0.9rem",
+};
+
+const priceCellStyle: CSSProperties = {
+  padding: "7px",
+  border: "1px solid #ddd",
+  whiteSpace: "nowrap",
+  textAlign: "right",
+  fontWeight: 700,
 };
 
 const configurationStyle: CSSProperties = {

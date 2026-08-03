@@ -2,11 +2,18 @@
 
 import type { CSSProperties } from "react";
 
-import { formatPlayerValue, parseNumericValue } from "@/lib/budget";
+import {
+  calculateCredits,
+  formatPlayerValue,
+  parseNumericValue,
+} from "@/lib/budget";
 import type { PlayerRow } from "@/lib/players";
 import {
+  ROLE_PLURAL_LABELS,
+  getPlayerKey,
   getPlayerRole,
   type PlayerRole,
+  type RoleBudgets,
   type RoleLimits,
 } from "@/lib/squad";
 
@@ -20,6 +27,9 @@ interface PlayerTooltipProps {
   strategyColumns: string[];
   purchasedPlayers: PlayerRow[];
   roleLimits: RoleLimits;
+  recordPurchasePrice: boolean;
+  purchasePrices: Record<string, number>;
+  roleBudgets: RoleBudgets;
 }
 
 type AlertLevel = "yellow" | "orange" | "red";
@@ -129,6 +139,10 @@ function getPotentialPurchaseAlerts(
   playerToAdd: PlayerRow,
   purchasedPlayers: PlayerRow[],
   roleLimits: RoleLimits,
+  initialBudget: number,
+  recordPurchasePrice: boolean,
+  purchasePrices: Record<string, number>,
+  roleBudgets: RoleBudgets,
 ): PurchaseAlert[] {
   const alerts: PurchaseAlert[] = [];
   const role = getPlayerRole(playerToAdd);
@@ -154,6 +168,68 @@ function getPotentialPurchaseAlerts(
         `Raggiungeresti il limite di ${roleLimits[role]} ` +
         `giocatori per il ruolo ${role}.`,
     });
+  }
+
+  if (recordPurchasePrice && roleBudgets[role] > 0) {
+    const expectedPercentage =
+      parseNumericValue(playerToAdd.media_strategie) ??
+      parseNumericValue(playerToAdd.pma);
+
+    if (expectedPercentage !== null && expectedPercentage > 0) {
+      const expectedPrice = calculateCredits(
+        expectedPercentage,
+        initialBudget,
+      );
+
+      const currentRoleSpent = purchasedPlayers.reduce(
+        (total, purchasedPlayer) => {
+          if (getPlayerRole(purchasedPlayer) !== role) {
+            return total;
+          }
+
+          return (
+            total +
+            (purchasePrices[getPlayerKey(purchasedPlayer)] ?? 0)
+          );
+        },
+        0,
+      );
+
+      const projectedRoleSpent =
+        currentRoleSpent + expectedPrice;
+      const plannedRoleBudget = roleBudgets[role];
+
+      if (projectedRoleSpent > plannedRoleBudget) {
+        const projectedOverrun =
+          projectedRoleSpent - plannedRoleBudget;
+        const roleLabel = ROLE_PLURAL_LABELS[role];
+
+        if (currentRoleSpent > plannedRoleBudget) {
+          const currentOverrun =
+            currentRoleSpent - plannedRoleBudget;
+
+          alerts.push({
+            level: "red",
+            text:
+              `Il budget previsto per i ${roleLabel} è già stato ` +
+              `superato di ${currentOverrun} crediti. Acquistando ` +
+              `questo giocatore al prezzo stimato dalla Media ` +
+              `(${expectedPrice} crediti), lo scostamento salirebbe ` +
+              `a ${projectedOverrun} crediti.`,
+          });
+        } else {
+          alerts.push({
+            level: "red",
+            text:
+              `Acquistando questo giocatore al prezzo stimato ` +
+              `dalla Media (${expectedPrice} crediti), la spesa per ` +
+              `i ${roleLabel} salirebbe a ${projectedRoleSpent} ` +
+              `crediti, superando di ${projectedOverrun} il budget ` +
+              `previsto di ${plannedRoleBudget} crediti.`,
+          });
+        }
+      }
+    }
   }
 
   const temporaryRolePlayers = temporarySquad.filter(
@@ -438,6 +514,9 @@ export default function PlayerTooltip({
   strategyColumns,
   purchasedPlayers,
   roleLimits,
+  recordPurchasePrice,
+  purchasePrices,
+  roleBudgets,
 }: PlayerTooltipProps) {
   if (!player) {
     return null;
@@ -449,6 +528,10 @@ export default function PlayerTooltip({
     player,
     purchasedPlayers,
     roleLimits,
+    initialBudget,
+    recordPurchasePrice,
+    purchasePrices,
+    roleBudgets,
   );
 
   const horizontalPosition: CSSProperties =
