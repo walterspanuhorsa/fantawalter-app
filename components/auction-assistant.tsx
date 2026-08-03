@@ -59,7 +59,7 @@ const BASE_COLUMNS: ColumnDefinition[] = [
   { key: "titolarita", label: "TIT" },
   { key: "affidabilita", label: "AFF" },
   { key: "integrita", label: "INT" },
-  { key: "media_strategie", label: "Media strategie" },
+  { key: "media_strategie", label: "Media" },
   { key: "pma", label: "PMA" },
   { key: "note", label: "NOTE" },
   { key: "percezione", label: "Percezione" },
@@ -489,6 +489,34 @@ export default function AuctionAssistant({
     ],
   );
 
+  const nameSuggestions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          initialPlayers
+            .filter((player) => {
+              const playerKey = getPlayerKey(player);
+
+              return (
+                !purchasedPlayerKeySet.has(playerKey) &&
+                !deletedPlayerKeySet.has(playerKey)
+              );
+            })
+            .map((player) => getTextValue(player, "nome"))
+            .filter(Boolean),
+        ),
+      ).sort((firstName, secondName) =>
+        firstName.localeCompare(secondName, "it", {
+          sensitivity: "base",
+        }),
+      ),
+    [
+      deletedPlayerKeySet,
+      initialPlayers,
+      purchasedPlayerKeySet,
+    ],
+  );
+
   const displayedPlayers = useMemo(() => {
     const normalizedSearch = nameSearch
       .trim()
@@ -770,10 +798,20 @@ export default function AuctionAssistant({
     <main style={pageStyle}>
       <div style={layoutStyle}>
         <section style={containerStyle}>
-          <div style={titleRowStyle}>
-            <h1 style={{ margin: 0 }}>Fantawalter</h1>
+          <details style={configurationPanelStyle}>
+            <summary style={configurationSummaryStyle}>
+              ⚙️ Configurazione
+            </summary>
 
-            <div style={titleActionsStyle}>
+            <div style={configurationActionsStyle}>
+              <button
+                type="button"
+                onClick={resetFilters}
+                style={secondaryButtonStyle}
+              >
+                Azzera filtri
+              </button>
+
               <button
                 type="button"
                 onClick={() => {
@@ -799,7 +837,7 @@ export default function AuctionAssistant({
                 Reimposta asta
               </button>
             </div>
-          </div>
+          </details>
 
           <div style={filtersStyle}>
             <label>
@@ -810,7 +848,7 @@ export default function AuctionAssistant({
                 onChange={(event) =>
                   setRoleFilter(event.target.value)
                 }
-                style={{ minWidth: "110px", padding: "8px" }}
+                style={{ ...controlStyle, minWidth: "110px" }}
               >
                 <option value="">Tutti</option>
 
@@ -830,7 +868,7 @@ export default function AuctionAssistant({
                 onChange={(event) =>
                   setTeamFilter(event.target.value)
                 }
-                style={{ minWidth: "180px", padding: "8px" }}
+                style={{ ...controlStyle, minWidth: "180px" }}
               >
                 <option value="">Tutte</option>
 
@@ -847,13 +885,21 @@ export default function AuctionAssistant({
 
               <input
                 type="search"
+                list="fantawalter-player-names"
                 value={nameSearch}
-                placeholder="Cerca un giocatore..."
+                placeholder="Digita o scegli un giocatore..."
+                autoComplete="off"
                 onChange={(event) =>
                   setNameSearch(event.target.value)
                 }
-                style={{ minWidth: "240px", padding: "8px" }}
+                style={{ ...controlStyle, minWidth: "260px" }}
               />
+
+              <datalist id="fantawalter-player-names">
+                {nameSuggestions.map((playerName) => (
+                  <option key={playerName} value={playerName} />
+                ))}
+              </datalist>
             </label>
 
             <label>
@@ -874,17 +920,9 @@ export default function AuctionAssistant({
                       : 0,
                   );
                 }}
-                style={{ width: "130px", padding: "8px" }}
+                style={{ ...controlStyle, width: "140px" }}
               />
             </label>
-
-            <button
-              type="button"
-              onClick={resetFilters}
-              style={secondaryButtonStyle}
-            >
-              Azzera filtri
-            </button>
           </div>
 
           <div style={columnsPanelStyle}>
@@ -990,6 +1028,16 @@ export default function AuctionAssistant({
             <table style={tableStyle}>
               <thead>
                 <tr>
+                  <th
+                    style={{
+                      ...headerCellStyle,
+                      ...actionsHeaderCellStyle,
+                    }}
+                    title="Azioni"
+                  >
+                    Az.
+                  </th>
+
                   {visibleColumns.map((column) => {
                     const sortable = !NON_SORTABLE_COLUMNS.has(
                       column.key,
@@ -1022,7 +1070,6 @@ export default function AuctionAssistant({
                     );
                   })}
 
-                  <th style={headerCellStyle}>Azioni</th>
                 </tr>
               </thead>
 
@@ -1033,6 +1080,30 @@ export default function AuctionAssistant({
 
                   return (
                     <tr key={rowKey}>
+                      <td style={actionCellStyle}>
+                        <div style={actionButtonsStyle}>
+                          <button
+                            type="button"
+                            onClick={() => purchasePlayer(player)}
+                            style={buyIconButtonStyle}
+                            aria-label={`Aggiungi ${getTextValue(player, "nome")} alla rosa`}
+                            title="Aggiungi alla rosa"
+                          >
+                            🛒
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => deletePlayer(player)}
+                            style={deleteIconButtonStyle}
+                            aria-label={`Elimina ${getTextValue(player, "nome")}`}
+                            title="Sposta nel cestino"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </td>
+
                       {visibleColumns.map((column) => (
                         <td
                           key={column.key}
@@ -1069,26 +1140,6 @@ export default function AuctionAssistant({
                           />
                         </td>
                       ))}
-
-                      <td style={cellStyle}>
-                        <div style={actionButtonsStyle}>
-                          <button
-                            type="button"
-                            onClick={() => deletePlayer(player)}
-                            style={deleteButtonStyle}
-                          >
-                            Elimina
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => purchasePlayer(player)}
-                            style={buyButtonStyle}
-                          >
-                            Acquista
-                          </button>
-                        </div>
-                      </td>
                     </tr>
                   );
                 })}
@@ -1252,19 +1303,28 @@ const rightPanelStyle: CSSProperties = {
   boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
 };
 
-const titleRowStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "12px",
-  marginBottom: "16px",
+const configurationPanelStyle: CSSProperties = {
+  marginBottom: "14px",
+  padding: "0 14px",
+  border: "1px solid #d7dee5",
+  borderRadius: "8px",
+  background: "#f8fafc",
 };
 
-const titleActionsStyle: CSSProperties = {
+const configurationSummaryStyle: CSSProperties = {
+  padding: "11px 0",
+  color: "#2c3e50",
+  fontWeight: 800,
+  cursor: "pointer",
+  userSelect: "none",
+};
+
+const configurationActionsStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: "8px",
   flexWrap: "wrap",
+  gap: "8px",
+  padding: "0 0 14px",
 };
 
 const binButtonStyle: CSSProperties = {
@@ -1311,6 +1371,18 @@ const labelStyle: CSSProperties = {
   display: "block",
   marginBottom: "5px",
   fontWeight: 700,
+};
+
+const controlStyle: CSSProperties = {
+  minHeight: "40px",
+  padding: "8px 11px",
+  border: "2px solid #aebdca",
+  borderRadius: "7px",
+  background: "#ffffff",
+  color: "#1f2933",
+  boxShadow: "inset 0 1px 2px rgba(0,0,0,0.06)",
+  outline: "none",
+  fontSize: "0.95rem",
 };
 
 const columnsPanelStyle: CSSProperties = {
@@ -1415,29 +1487,55 @@ const nameCellStyle: CSSProperties = {
   cursor: "help",
 };
 
+const actionsHeaderCellStyle: CSSProperties = {
+  left: 0,
+  zIndex: 4,
+  width: "68px",
+  minWidth: "68px",
+  textAlign: "center",
+};
+
+const actionCellStyle: CSSProperties = {
+  ...cellStyle,
+  position: "sticky",
+  left: 0,
+  zIndex: 1,
+  width: "68px",
+  minWidth: "68px",
+  padding: "4px",
+  background: "#fff",
+};
+
 const actionButtonsStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: "5px",
+  justifyContent: "center",
+  gap: "3px",
 };
 
-const deleteButtonStyle: CSSProperties = {
-  padding: "5px 9px",
-  border: 0,
-  borderRadius: "5px",
-  background: "#e74c3c",
-  color: "#fff",
-  fontWeight: 700,
-  cursor: "pointer",
-};
-
-const buyButtonStyle: CSSProperties = {
-  padding: "5px 9px",
+const buyIconButtonStyle: CSSProperties = {
+  width: "28px",
+  height: "28px",
+  padding: 0,
   border: 0,
   borderRadius: "5px",
   background: "#f39c12",
   color: "#fff",
-  fontWeight: 700,
+  fontSize: "0.9rem",
+  lineHeight: 1,
+  cursor: "pointer",
+};
+
+const deleteIconButtonStyle: CSSProperties = {
+  width: "25px",
+  height: "28px",
+  padding: 0,
+  border: "1px solid #d9dfe5",
+  borderRadius: "5px",
+  background: "#fff",
+  color: "#c0392b",
+  fontSize: "0.78rem",
+  lineHeight: 1,
   cursor: "pointer",
 };
 

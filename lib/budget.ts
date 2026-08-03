@@ -33,6 +33,7 @@ export function isBudgetPercentageColumn(
 ): boolean {
   return (
     columnName === "media_strategie" ||
+    columnName === "pma" ||
     columnName.startsWith("strategia_")
   );
 }
@@ -44,13 +45,6 @@ export function calculateCredits(
   return Math.round(
     (percentage * initialBudget) / 100,
   );
-}
-
-function formatNumber(value: number): string {
-  return value.toLocaleString("it-IT", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  });
 }
 
 export function formatPlayerValue(
@@ -66,28 +60,18 @@ export function formatPlayerValue(
     return "-";
   }
 
-  const numericValue =
-    parseNumericValue(value);
+  const numericValue = parseNumericValue(value);
 
   if (
     isBudgetPercentageColumn(columnName) &&
     numericValue !== null
   ) {
-    const credits = calculateCredits(
+    return calculateCredits(
       numericValue,
       initialBudget,
-    );
-
-    return `${credits} crediti (${formatNumber(
-      numericValue,
-    )}%)`;
-  }
-
-  if (
-    columnName === "pma" &&
-    numericValue !== null
-  ) {
-    return `${formatNumber(numericValue)}%`;
+    ).toLocaleString("it-IT", {
+      maximumFractionDigits: 0,
+    });
   }
 
   return String(value);

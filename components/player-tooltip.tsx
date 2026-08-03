@@ -160,44 +160,46 @@ function getPotentialPurchaseAlerts(
     (player) => getPlayerRole(player) === role,
   );
 
-  const averageTitolarita = calculateAverage(
-    temporaryRolePlayers,
-    "titolarita",
-  );
-  const averageAffidabilita = calculateAverage(
-    temporaryRolePlayers,
-    "affidabilita",
-  );
-  const averageIntegrita = calculateAverage(
-    temporaryRolePlayers,
-    "integrita",
-  );
+  if (temporaryRolePlayers.length >= 2) {
+    const averageTitolarita = calculateAverage(
+      temporaryRolePlayers,
+      "titolarita",
+    );
+    const averageAffidabilita = calculateAverage(
+      temporaryRolePlayers,
+      "affidabilita",
+    );
+    const averageIntegrita = calculateAverage(
+      temporaryRolePlayers,
+      "integrita",
+    );
 
-  if (averageTitolarita < 3) {
-    alerts.push({
-      level: "red",
-      text:
-        `La media TIT dei ${role} scenderebbe a ` +
-        `${averageTitolarita.toFixed(2)}.`,
-    });
-  }
+    if (averageTitolarita < 3) {
+      alerts.push({
+        level: "red",
+        text:
+          `La media TIT dei ${role} scenderebbe a ` +
+          `${averageTitolarita.toFixed(2)}.`,
+      });
+    }
 
-  if (averageAffidabilita < 3) {
-    alerts.push({
-      level: "red",
-      text:
-        `La media AFF dei ${role} scenderebbe a ` +
-        `${averageAffidabilita.toFixed(2)}.`,
-    });
-  }
+    if (averageAffidabilita < 3) {
+      alerts.push({
+        level: "red",
+        text:
+          `La media AFF dei ${role} scenderebbe a ` +
+          `${averageAffidabilita.toFixed(2)}.`,
+      });
+    }
 
-  if (averageIntegrita < 3) {
-    alerts.push({
-      level: "red",
-      text:
-        `La media INT dei ${role} scenderebbe a ` +
-        `${averageIntegrita.toFixed(2)}.`,
-    });
+    if (averageIntegrita < 3) {
+      alerts.push({
+        level: "red",
+        text:
+          `La media INT dei ${role} scenderebbe a ` +
+          `${averageIntegrita.toFixed(2)}.`,
+      });
+    }
   }
 
   const playerTeam = String(playerToAdd.team ?? "").trim();
@@ -245,52 +247,54 @@ function getPotentialPurchaseAlerts(
     }
   }
 
-  const totalFromSameTeam = playerTeam
-    ? totalTeamCount[playerTeam] ?? 0
-    : 0;
-
-  if (totalFromSameTeam >= 5) {
-    alerts.push({
-      level: "red",
-      text: `Avresti ${totalFromSameTeam} giocatori del ${playerTeam} in rosa.`,
-    });
-  } else if (totalFromSameTeam === 4) {
-    alerts.push({
-      level: "orange",
-      text: `Avresti ${totalFromSameTeam} giocatori del ${playerTeam} in rosa.`,
-    });
-  } else if (totalFromSameTeam === 3) {
-    alerts.push({
-      level: "yellow",
-      text: `Avresti ${totalFromSameTeam} giocatori del ${playerTeam} in rosa.`,
-    });
-  }
-
   const coppaAfricaPlayers = temporarySquad.filter((player) =>
     playerHasNote(player, "Coppa Africa"),
   );
 
-  if (coppaAfricaPlayers.length >= 4) {
-    alerts.push({
-      level: "red",
-      text:
-        `Avresti ${coppaAfricaPlayers.length} giocatori ` +
-        `impegnati in Coppa d'Africa.`,
-    });
-  } else if (coppaAfricaPlayers.length === 3) {
-    alerts.push({
-      level: "orange",
-      text:
-        `Avresti ${coppaAfricaPlayers.length} giocatori ` +
-        `impegnati in Coppa d'Africa.`,
-    });
-  } else if (coppaAfricaPlayers.length === 2) {
-    alerts.push({
-      level: "yellow",
-      text:
-        `Avresti ${coppaAfricaPlayers.length} giocatori ` +
-        `impegnati in Coppa d'Africa.`,
-    });
+  if (temporarySquad.length >= 4) {
+    const totalFromSameTeam = playerTeam
+      ? totalTeamCount[playerTeam] ?? 0
+      : 0;
+
+    if (totalFromSameTeam >= 5) {
+      alerts.push({
+        level: "red",
+        text: `Avresti ${totalFromSameTeam} giocatori del ${playerTeam} in rosa.`,
+      });
+    } else if (totalFromSameTeam === 4) {
+      alerts.push({
+        level: "orange",
+        text: `Avresti ${totalFromSameTeam} giocatori del ${playerTeam} in rosa.`,
+      });
+    } else if (totalFromSameTeam === 3) {
+      alerts.push({
+        level: "yellow",
+        text: `Avresti ${totalFromSameTeam} giocatori del ${playerTeam} in rosa.`,
+      });
+    }
+
+    if (coppaAfricaPlayers.length >= 4) {
+      alerts.push({
+        level: "red",
+        text:
+          `Avresti ${coppaAfricaPlayers.length} giocatori ` +
+          `impegnati in Coppa d'Africa.`,
+      });
+    } else if (coppaAfricaPlayers.length === 3) {
+      alerts.push({
+        level: "orange",
+        text:
+          `Avresti ${coppaAfricaPlayers.length} giocatori ` +
+          `impegnati in Coppa d'Africa.`,
+      });
+    } else if (coppaAfricaPlayers.length === 2) {
+      alerts.push({
+        level: "yellow",
+        text:
+          `Avresti ${coppaAfricaPlayers.length} giocatori ` +
+          `impegnati in Coppa d'Africa.`,
+      });
+    }
   }
 
   if (playerHasNote(playerToAdd, "Coppa Africa")) {
@@ -331,7 +335,7 @@ function buildPriceDetails(
 ): DetailItem[] {
   const details: DetailItem[] = [
     {
-      label: "Media strategie",
+      label: "Media",
       value: formatPlayerValue(
         player.media_strategie,
         "media_strategie",
