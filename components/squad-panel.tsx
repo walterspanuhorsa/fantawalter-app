@@ -22,10 +22,6 @@ import {
 interface SquadPanelProps {
   purchasedPlayers: PlayerRow[];
   roleLimits: RoleLimits;
-  onLimitChange: (
-    role: PlayerRole,
-    value: number,
-  ) => void;
   onRemovePlayer: (
     player: PlayerRow,
   ) => void;
@@ -537,7 +533,6 @@ function StatBars({ value }: { value: unknown }) {
 export default function SquadPanel({
   purchasedPlayers,
   roleLimits,
-  onLimitChange,
   onRemovePlayer,
   onDeletePlayer,
   recordPurchasePrice,
@@ -634,8 +629,7 @@ export default function SquadPanel({
         }
 
         @media (max-width: 640px) {
-          .fantawalter-role-counters,
-          .fantawalter-role-limits {
+          .fantawalter-role-counters {
             grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
           }
 
@@ -697,47 +691,6 @@ export default function SquadPanel({
           </span>
         </div>
       )}
-
-      <section style={configurationStyle}>
-        <div style={roleLimitsHeaderStyle}>
-          <strong>Limiti per ruolo</strong>
-          <span style={roleLimitsHelpStyle}>
-            Modifica gli slot previsti per la tua lega.
-          </span>
-        </div>
-
-        <div
-          className="fantawalter-role-limits"
-          style={roleLimitsGridStyle}
-        >
-          {ROLE_ORDER.map((role) => (
-            <label key={role} style={roleLimitFieldStyle}>
-              <span style={configurationLabelStyle}>
-                {role}
-              </span>
-
-              <input
-                type="number"
-                min={0}
-                step={1}
-                value={roleLimits[role]}
-                onChange={(event) => {
-                  const value =
-                    event.currentTarget.valueAsNumber;
-
-                  onLimitChange(
-                    role,
-                    Number.isFinite(value)
-                      ? Math.max(0, Math.trunc(value))
-                      : 0,
-                  );
-                }}
-                style={limitInputStyle}
-              />
-            </label>
-          ))}
-        </div>
-      </section>
 
       <div
         className="fantawalter-squad-table-wrapper"
@@ -1245,67 +1198,6 @@ const priceCellStyle: CSSProperties = {
   whiteSpace: "nowrap",
   textAlign: "right",
   fontWeight: 700,
-};
-
-const configurationStyle: CSSProperties = {
-  padding: "11px",
-  marginBottom: "14px",
-  borderWidth: "1px",
-  borderStyle: "solid",
-  borderColor: "#e0e6eb",
-  borderRadius: "8px",
-  background: "#f8fafc",
-};
-
-const roleLimitsHeaderStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "baseline",
-  justifyContent: "space-between",
-  flexWrap: "wrap",
-  gap: "4px 10px",
-  marginBottom: "9px",
-  color: "#2c3e50",
-};
-
-const roleLimitsHelpStyle: CSSProperties = {
-  color: "#6b7b88",
-  fontSize: "0.76rem",
-};
-
-const roleLimitsGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-  gap: "8px",
-};
-
-const roleLimitFieldStyle: CSSProperties = {
-  minWidth: 0,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "6px",
-  padding: "6px 7px",
-  borderRadius: "6px",
-  background: "#fff",
-};
-
-const configurationLabelStyle: CSSProperties = {
-  fontWeight: 800,
-  color: "#34495e",
-};
-
-const limitInputStyle: CSSProperties = {
-  width: "52px",
-  minHeight: "34px",
-  padding: "5px",
-  borderWidth: "1px",
-  borderStyle: "solid",
-  borderColor: "#aebdca",
-  borderRadius: "6px",
-  background: "#fff",
-  color: "#243746",
-  textAlign: "center",
-  outline: "none",
 };
 
 const tableWrapperStyle: CSSProperties = {

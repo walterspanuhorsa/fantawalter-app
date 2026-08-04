@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import {
   useEffect,
   useMemo,
@@ -19,6 +21,14 @@ import {
   parseNumericValue,
 } from "@/lib/budget";
 import type { PlayerRow } from "@/lib/players";
+import {
+  AUCTION_STORAGE_KEY,
+  BASE_COLUMNS,
+  DEFAULT_VISIBLE_COLUMNS,
+  formatStrategyLabel,
+  type ColumnDefinition,
+  type PersistedAuctionState,
+} from "@/lib/auction-settings";
 
 import {
   DEFAULT_ROLE_BUDGETS,
@@ -38,44 +48,7 @@ interface AuctionAssistantProps {
   lastUpdate: string | null;
 }
 
-interface ColumnDefinition {
-  key: string;
-  label: string;
-}
-
 type SortDirection = "asc" | "desc";
-
-type HelpTopic = "resetAuction" | "purchasePrice";
-
-const HELP_MESSAGES: Record<
-  HelpTopic,
-  { title: string; description: string }
-> = {
-  resetAuction: {
-    title: "Azzera asta",
-    description:
-      "Riporta tutta l’app allo stato iniziale: svuota la rosa e il cestino e ripristina budget, filtri, limiti, colonne e configurazioni.",
-  },
-  purchasePrice: {
-    title: "Registra prezzi di acquisto",
-    description:
-      "Attiva nuovi avvisi basati sulla spesa: dovrai inserire il prezzo pagato per ogni giocatore acquistato.",
-  },
-};
-
-interface PersistedAuctionState {
-  initialBudget?: unknown;
-  purchasedPlayerKeys?: unknown;
-  deletedPlayerKeys?: unknown;
-  roleLimits?: unknown;
-  visibleColumnKeys?: unknown;
-  columnOrderKeys?: unknown;
-  recordPurchasePrice?: unknown;
-  purchasePrices?: unknown;
-  configurationOpen?: unknown;
-  columnsVisibilityOpen?: unknown;
-  roleBudgets?: unknown;
-}
 
 interface TooltipPointer {
   x: number;
@@ -83,25 +56,6 @@ interface TooltipPointer {
   viewportWidth: number;
   viewportHeight: number;
 }
-
-const STORAGE_KEY = "fantawalter-auction-state-v1";
-
-const BASE_COLUMNS: ColumnDefinition[] = [
-  { key: "ruolo", label: "Ruolo" },
-  { key: "team", label: "Squadra" },
-  { key: "nome", label: "Nome" },
-  { key: "titolarita", label: "TIT" },
-  { key: "affidabilita", label: "AFF" },
-  { key: "integrita", label: "INT" },
-  { key: "media_strategie", label: "Media" },
-  { key: "pma", label: "PMA" },
-  { key: "note", label: "NOTE" },
-  { key: "percezione", label: "Percezione" },
-];
-
-const DEFAULT_VISIBLE_COLUMNS = BASE_COLUMNS.map(
-  (column) => column.key,
-);
 
 const NON_SORTABLE_COLUMNS = new Set([
   "note",
@@ -139,18 +93,6 @@ function isEmptyValue(value: unknown): boolean {
   }
 
   return typeof value === "string" && value.trim() === "";
-}
-
-function formatStrategyLabel(columnName: string): string {
-  return columnName
-    .replace(/^strategia_/, "")
-    .split("_")
-    .filter(Boolean)
-    .map(
-      (word) =>
-        word.charAt(0).toUpperCase() + word.slice(1),
-    )
-    .join(" ");
 }
 
 function getRoleCellStyle(role: string): CSSProperties {
@@ -321,10 +263,6 @@ export default function AuctionAssistant({
   const [purchasePrices, setPurchasePrices] = useState<
     Record<string, number>
   >({});
-  const [configurationOpen, setConfigurationOpen] =
-    useState(true);
-  const [columnsVisibilityOpen, setColumnsVisibilityOpen] =
-    useState(true);
   const [roleBudgets, setRoleBudgets] =
     useState<RoleBudgets>(() => ({
       ...DEFAULT_ROLE_BUDGETS,
@@ -337,9 +275,6 @@ export default function AuctionAssistant({
     useState<string[]>([]);
 
   const [isBinOpen, setIsBinOpen] = useState(false);
-  const [hoveredHelpTopic, setHoveredHelpTopic] =
-    useState<HelpTopic | null>(null);
-
   const [roleLimits, setRoleLimits] = useState<RoleLimits>(
     () => ({ ...DEFAULT_ROLE_LIMITS }),
   );
@@ -355,9 +290,6 @@ export default function AuctionAssistant({
 
   const [columnOrderKeys, setColumnOrderKeys] =
     useState<string[]>([]);
-
-  const [draggedColumnKey, setDraggedColumnKey] =
-    useState<string | null>(null);
 
   const [storageReady, setStorageReady] = useState(false);
 
@@ -454,7 +386,7 @@ export default function AuctionAssistant({
   useEffect(() => {
     const animationFrameId = window.requestAnimationFrame(() => {
       try {
-        const savedState = window.localStorage.getItem(STORAGE_KEY);
+        const savedState = window.localStorage.getItem(AUCTION_STORAGE_KEY);
 
         if (!savedState) {
           return;
@@ -478,22 +410,6 @@ export default function AuctionAssistant({
 
         if (savedRecordPurchasePrice !== null) {
           setRecordPurchasePrice(savedRecordPurchasePrice);
-        }
-
-        const savedConfigurationOpen = readBoolean(
-          parsedState.configurationOpen,
-        );
-
-        if (savedConfigurationOpen !== null) {
-          setConfigurationOpen(savedConfigurationOpen);
-        }
-
-        const savedColumnsVisibilityOpen = readBoolean(
-          parsedState.columnsVisibilityOpen,
-        );
-
-        if (savedColumnsVisibilityOpen !== null) {
-          setColumnsVisibilityOpen(savedColumnsVisibilityOpen);
         }
 
         const savedRoleBudgets = readRoleBudgets(
@@ -605,14 +521,12 @@ export default function AuctionAssistant({
       columnOrderKeys,
       recordPurchasePrice,
       purchasePrices,
-      configurationOpen,
-      columnsVisibilityOpen,
       roleBudgets,
     };
 
     try {
       window.localStorage.setItem(
-        STORAGE_KEY,
+        AUCTION_STORAGE_KEY,
         JSON.stringify(stateToSave),
       );
     } catch (error) {
@@ -631,8 +545,6 @@ export default function AuctionAssistant({
     columnOrderKeys,
     recordPurchasePrice,
     purchasePrices,
-    configurationOpen,
-    columnsVisibilityOpen,
     roleBudgets,
   ]);
 
@@ -901,105 +813,6 @@ export default function AuctionAssistant({
     setSortDirection("asc");
   }
 
-  function toggleColumn(columnName: string): void {
-    setVisibleColumnKeys((currentColumns) => {
-      if (currentColumns.includes(columnName)) {
-        const remainingColumns = currentColumns.filter(
-          (currentColumn) => currentColumn !== columnName,
-        );
-
-        return remainingColumns.length > 0
-          ? remainingColumns
-          : currentColumns;
-      }
-
-      return [...currentColumns, columnName];
-    });
-  }
-
-  function showAllColumns(): void {
-    setVisibleColumnKeys(
-      groupedOrderedColumns.map((column) => column.key),
-    );
-  }
-
-  function restoreDefaultColumns(): void {
-    setVisibleColumnKeys(DEFAULT_VISIBLE_COLUMNS);
-    setColumnOrderKeys([]);
-  }
-
-  function reorderColumn(
-    sourceColumnKey: string,
-    targetColumnKey: string,
-  ): void {
-    if (sourceColumnKey === targetColumnKey) {
-      return;
-    }
-
-    const sourceIsStrategy =
-      strategyColumnKeySet.has(sourceColumnKey);
-    const targetIsStrategy =
-      strategyColumnKeySet.has(targetColumnKey);
-
-    /*
-     * Le colonne principali e le strategie restano in due
-     * gruppi distinti; il trascinamento riordina il gruppo.
-     */
-    if (sourceIsStrategy !== targetIsStrategy) {
-      return;
-    }
-
-    const nextOrder = groupedOrderedColumns.map(
-      (column) => column.key,
-    );
-    const sourceIndex = nextOrder.indexOf(sourceColumnKey);
-    const targetIndex = nextOrder.indexOf(targetColumnKey);
-
-    if (sourceIndex < 0 || targetIndex < 0) {
-      return;
-    }
-
-    nextOrder.splice(sourceIndex, 1);
-    nextOrder.splice(targetIndex, 0, sourceColumnKey);
-    setColumnOrderKeys(nextOrder);
-  }
-
-  function resetFilters(): void {
-    setRoleFilter("");
-    setTeamFilter("");
-    setNameSearch("");
-  }
-
-  function resetAuction(): void {
-    const confirmed = window.confirm(
-      "Vuoi azzerare rosa, cestino, budget, limiti e colonne salvate?",
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    setPurchasedPlayerKeys([]);
-    setDeletedPlayerKeys([]);
-    setHoveredPlayer(null);
-    setIsBinOpen(false);
-    setHoveredHelpTopic(null);
-    setInitialBudget(500);
-    setRecordPurchasePrice(false);
-    setPurchasePrices({});
-    setRoleBudgets({ ...DEFAULT_ROLE_BUDGETS });
-    setConfigurationOpen(true);
-    setColumnsVisibilityOpen(true);
-    setRoleLimits({ ...DEFAULT_ROLE_LIMITS });
-    setVisibleColumnKeys(DEFAULT_VISIBLE_COLUMNS);
-    setColumnOrderKeys([]);
-    resetFilters();
-    setSortColumn("nome");
-    setSortDirection("asc");
-
-    window.localStorage.removeItem(STORAGE_KEY);
-  }
-
   function purchasePlayer(player: PlayerRow): void {
     setHoveredPlayer(null);
 
@@ -1179,87 +992,6 @@ export default function AuctionAssistant({
     );
   }
 
-  function changeRoleLimit(
-    role: PlayerRole,
-    value: number,
-  ): void {
-    setRoleLimits((currentLimits) => ({
-      ...currentLimits,
-      [role]: value,
-    }));
-  }
-
-  function changeRoleBudget(
-    role: PlayerRole,
-    value: number,
-  ): void {
-    setRoleBudgets((currentBudgets) => ({
-      ...currentBudgets,
-      [role]: value,
-    }));
-  }
-
-  const totalPlannedRoleBudget = ROLE_ORDER.reduce(
-    (total, role) => total + roleBudgets[role],
-    0,
-  );
-  const unallocatedRoleBudget =
-    initialBudget - totalPlannedRoleBudget;
-
-  function renderColumnControls(
-    columns: ColumnDefinition[],
-  ) {
-    return columns.map((column) => {
-      const isVisible = visibleColumnKeys.includes(column.key);
-      const isDragging = draggedColumnKey === column.key;
-
-      return (
-        <div
-          key={column.key}
-          draggable
-          onDragStart={(event) => {
-            setDraggedColumnKey(column.key);
-            event.dataTransfer.effectAllowed = "move";
-          }}
-          onDragOver={(event) => {
-            event.preventDefault();
-            event.dataTransfer.dropEffect = "move";
-          }}
-          onDrop={(event) => {
-            event.preventDefault();
-
-            if (draggedColumnKey) {
-              reorderColumn(draggedColumnKey, column.key);
-            }
-
-            setDraggedColumnKey(null);
-          }}
-          onDragEnd={() => setDraggedColumnKey(null)}
-          style={{
-            ...columnDragItemStyle,
-            opacity: isDragging ? 0.45 : 1,
-          }}
-          title="Trascina per spostare la colonna nel suo gruppo"
-        >
-          <span style={dragHandleStyle}>☰</span>
-
-          <button
-            type="button"
-            onClick={() => toggleColumn(column.key)}
-            style={{
-              ...columnButtonStyle,
-              background: isVisible ? "#f1c40f" : "#bdc3c7",
-              borderColor: isVisible ? "#f39c12" : "#95a5a6",
-              color: isVisible ? "#222" : "#555",
-            }}
-          >
-            {column.label}
-          </button>
-        </div>
-      );
-    });
-  }
-
   function getSortIndicator(columnName: string): string {
     if (sortColumn !== columnName) {
       return "";
@@ -1330,14 +1062,13 @@ export default function AuctionAssistant({
             border-radius: 8px !important;
           }
 
-          .fantawalter-configuration-header {
+          .fantawalter-top-bar {
             align-items: stretch !important;
             flex-direction: column !important;
           }
 
-          .fantawalter-support-buttons {
+          .fantawalter-top-actions {
             width: 100% !important;
-            margin-left: 0 !important;
             justify-content: flex-start !important;
           }
 
@@ -1360,289 +1091,22 @@ export default function AuctionAssistant({
           className="fantawalter-main-panel"
           style={containerStyle}
         >
-          <section style={configurationPanelStyle}>
-            <div
-              className="fantawalter-configuration-header"
-              style={configurationHeaderRowStyle}
-            >
-              <button
-                type="button"
-                aria-expanded={configurationOpen}
-                onClick={() =>
-                  setConfigurationOpen((currentValue) => !currentValue)
-                }
-                style={configurationToggleButtonStyle}
-              >
-                <span aria-hidden="true" style={sectionArrowStyle}>
-                  {configurationOpen ? "▼" : "▶"}
-                </span>
-                <span>⚙️ Configurazione</span>
-              </button>
-
-              <div
-                className="fantawalter-support-buttons"
-                style={supportButtonsStyle}
-              >
-                <PayPalSupportButton />
-              </div>
-            </div>
-
-            {configurationOpen && (
-              <>
-                <div style={configurationTopRowStyle}>
-              <div style={configurationLeftActionsStyle}>
-                <label style={configurationFieldStyle}>
-                  <span style={labelStyle}>Budget iniziale</span>
-
-                  <input
-                    type="number"
-                    min={1}
-                    step={1}
-                    value={initialBudget}
-                    onChange={(event) => {
-                      const value =
-                        event.currentTarget.valueAsNumber;
-
-                      setInitialBudget(
-                        Number.isFinite(value) && value > 0
-                          ? value
-                          : 0,
-                      );
-                    }}
-                    style={{ ...controlStyle, width: "140px" }}
-                  />
-                </label>
-
-                <div style={actionWithHelpStyle}>
-                  <button
-                    type="button"
-                    aria-describedby={
-                      hoveredHelpTopic === "resetAuction"
-                        ? "reset-auction-help"
-                        : undefined
-                    }
-                    onClick={resetAuction}
-                    onMouseEnter={() =>
-                      setHoveredHelpTopic("resetAuction")
-                    }
-                    onMouseLeave={() => setHoveredHelpTopic(null)}
-                    onFocus={() =>
-                      setHoveredHelpTopic("resetAuction")
-                    }
-                    onBlur={() => setHoveredHelpTopic(null)}
-                    style={resetAuctionButtonStyle}
-                  >
-                    Azzera asta
-                  </button>
-
-                  {hoveredHelpTopic === "resetAuction" && (
-                    <span
-                      id="reset-auction-help"
-                      role="tooltip"
-                      style={{
-                        ...helpTooltipStyle,
-                        left: 0,
-                      }}
-                    >
-                      {HELP_MESSAGES.resetAuction.description}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div style={purchasePriceActionStyle}>
-                <button
-                  type="button"
-                  aria-pressed={recordPurchasePrice}
-                  aria-describedby={
-                    hoveredHelpTopic === "purchasePrice"
-                      ? "purchase-price-help"
-                      : undefined
-                  }
-                  onClick={() =>
-                    setRecordPurchasePrice((currentValue) =>
-                      !currentValue
-                    )
-                  }
-                  onMouseEnter={() =>
-                    setHoveredHelpTopic("purchasePrice")
-                  }
-                  onMouseLeave={() => setHoveredHelpTopic(null)}
-                  onFocus={() =>
-                    setHoveredHelpTopic("purchasePrice")
-                  }
-                  onBlur={() => setHoveredHelpTopic(null)}
-                  style={{
-                    ...purchasePriceToggleStyle,
-                    ...(recordPurchasePrice
-                      ? purchasePriceToggleActiveStyle
-                      : {}),
-                  }}
-                >
-                  <span style={purchasePriceToggleIconStyle}>🧾</span>
-                  <span>
-                    <strong>Registra prezzi di acquisto</strong>
-                    <small style={optionDescriptionStyle}>
-                      {recordPurchasePrice
-                        ? "Attivo: configura il budget previsto per ruolo."
-                        : "Disattivato: l'acquisto non richiede il prezzo."}
-                    </small>
-                  </span>
-                </button>
-
-                {hoveredHelpTopic === "purchasePrice" && (
-                  <span
-                    id="purchase-price-help"
-                    role="tooltip"
-                    style={{
-                      ...helpTooltipStyle,
-                      right: 0,
-                    }}
-                  >
-                    {HELP_MESSAGES.purchasePrice.description}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {recordPurchasePrice && (
-              <section style={roleBudgetMenuStyle}>
-                <div style={roleBudgetMenuHeaderStyle}>
-                  <div>
-                    <strong>Budget previsto per ruolo</strong>
-                    <p style={roleBudgetHelpStyle}>
-                      Imposta un budget (in crediti) per ciascun ruolo per attivare gli avvisi sulla spesa
-                    </p>
-                  </div>
-
-                  <span style={plannedBudgetBadgeStyle}>
-                    {totalPlannedRoleBudget}/{initialBudget}
-                  </span>
-                </div>
-
-                <div style={roleBudgetInputsStyle}>
-                  {ROLE_ORDER.map((role) => (
-                    <label key={role} style={roleBudgetFieldStyle}>
-                      <span style={labelStyle}>
-                        {role} · {ROLE_PLURAL_LABELS[role]}
-                      </span>
-
-                      <input
-                        type="number"
-                        min={0}
-                        step={1}
-                        value={roleBudgets[role]}
-                        onChange={(event) => {
-                          const value =
-                            event.currentTarget.valueAsNumber;
-
-                          changeRoleBudget(
-                            role,
-                            Number.isFinite(value)
-                              ? Math.max(0, Math.trunc(value))
-                              : 0,
-                          );
-                        }}
-                        style={{ ...controlStyle, width: "120px" }}
-                      />
-                    </label>
-                  ))}
-                </div>
-
-                <div
-                  style={{
-                    ...roleBudgetStatusStyle,
-                    ...(unallocatedRoleBudget < 0
-                      ? roleBudgetStatusWarningStyle
-                      : {}),
-                  }}
-                >
-                  {unallocatedRoleBudget > 0 && (
-                    <>
-                      Restano <strong>{unallocatedRoleBudget}</strong>{" "}
-                      crediti non assegnati ai ruoli.
-                    </>
-                  )}
-
-                  {unallocatedRoleBudget === 0 && (
-                    <>Il budget iniziale è interamente assegnato.</>
-                  )}
-
-                  {unallocatedRoleBudget < 0 && (
-                    <>
-                      La pianificazione supera il budget iniziale di{" "}
-                      <strong>{Math.abs(unallocatedRoleBudget)}</strong>{" "}
-                      crediti.
-                    </>
-                  )}
-                </div>
-              </section>
-            )}
-              </>
-            )}
-          </section>
-
-          <details
-            open={columnsVisibilityOpen}
-            onToggle={(event) =>
-              setColumnsVisibilityOpen(event.currentTarget.open)
-            }
-            style={columnsVisibilityPanelStyle}
+          <section
+            className="fantawalter-top-bar"
+            style={topBarStyle}
           >
-            <summary style={configurationSummaryStyle}>
-              👁️ Visibilità colonne
-            </summary>
+            <Link href="/configurazione" style={settingsLinkStyle}>
+              <span aria-hidden="true">⚙️</span>
+              <span>Configurazione</span>
+            </Link>
 
-            <div style={columnsPanelContentStyle}>
-              <div style={columnsPanelHeaderStyle}>
-                <p style={columnHelpStyle}>
-                  Trascina le colonne per riordinarle nel proprio
-                  gruppo. Clicca sul nome per mostrarle o nasconderle.
-                </p>
-
-                <div style={columnUtilityButtonsStyle}>
-                  <button
-                    type="button"
-                    onClick={showAllColumns}
-                    style={smallButtonStyle}
-                  >
-                    Mostra tutte
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={restoreDefaultColumns}
-                    style={smallButtonStyle}
-                  >
-                    Ripristina predefinite
-                  </button>
-                </div>
-              </div>
-
-              <section style={columnGroupStyle}>
-                <h4 style={columnGroupTitleStyle}>
-                  Colonne principali
-                </h4>
-                <div style={columnButtonsStyle}>
-                  {renderColumnControls(orderedMainColumns)}
-                </div>
-              </section>
-
-              <section style={strategyColumnGroupStyle}>
-                <h4 style={columnGroupTitleStyle}>Strategie</h4>
-
-                {orderedStrategyColumns.length > 0 ? (
-                  <div style={columnButtonsStyle}>
-                    {renderColumnControls(orderedStrategyColumns)}
-                  </div>
-                ) : (
-                  <p style={emptyStrategiesStyle}>
-                    Nessuna colonna strategia rilevata.
-                  </p>
-                )}
-              </section>
+            <div
+              className="fantawalter-top-actions"
+              style={topBarActionsStyle}
+            >
+              <PayPalSupportButton />
             </div>
-          </details>
+          </section>
 
           <div style={filtersStyle}>
             <label className="fantawalter-filter-field">
@@ -1903,7 +1367,6 @@ export default function AuctionAssistant({
           <SquadPanel
             purchasedPlayers={purchasedPlayers}
             roleLimits={roleLimits}
-            onLimitChange={changeRoleLimit}
             onRemovePlayer={removePurchasedPlayer}
             onDeletePlayer={deletePlayer}
             recordPurchasePrice={recordPurchasePrice}
@@ -2055,208 +1518,44 @@ const rightPanelStyle: CSSProperties = {
   boxShadow: "0 8px 24px rgba(15, 23, 42, 0.06)",
 };
 
-const configurationPanelStyle: CSSProperties = {
+const topBarStyle: CSSProperties = {
+  minHeight: "52px",
   marginBottom: "12px",
-  padding: "0 12px",
-  borderWidth: "1px",
-  borderStyle: "solid",
-  borderColor: "#dbe3ea",
-  borderRadius: "8px",
-  background: "#fbfcfe",
-};
-
-const configurationSummaryStyle: CSSProperties = {
-  padding: "11px 0",
-  color: "#2c3e50",
-  fontWeight: 800,
-  cursor: "pointer",
-  userSelect: "none",
-};
-
-const configurationHeaderRowStyle: CSSProperties = {
-  minHeight: "44px",
+  padding: "8px 10px",
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  flexWrap: "wrap",
   gap: "10px",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#d7e0e7",
+  borderRadius: "8px",
+  background: "#f8fafc",
 };
 
-const configurationToggleButtonStyle: CSSProperties = {
+const settingsLinkStyle: CSSProperties = {
+  minHeight: "36px",
   display: "inline-flex",
   alignItems: "center",
   gap: "7px",
-  padding: "11px 0",
-  border: 0,
-  background: "transparent",
-  color: "#2c3e50",
-  font: "inherit",
-  fontWeight: 800,
-  cursor: "pointer",
-  textAlign: "left",
-};
-
-const supportButtonsStyle: CSSProperties = {
-  minWidth: 0,
-  maxWidth: "100%",
-  minHeight: "34px",
-  marginLeft: "auto",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "flex-end",
-  flexWrap: "wrap",
-  gap: "8px",
-};
-
-const sectionArrowStyle: CSSProperties = {
-  width: "12px",
-  display: "inline-flex",
-  justifyContent: "center",
-  fontSize: "0.72rem",
-  lineHeight: 1,
-};
-
-const configurationTopRowStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "end",
-  justifyContent: "space-between",
-  flexWrap: "wrap",
-  gap: "14px",
-  padding: "0 0 14px",
-};
-
-const configurationLeftActionsStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "end",
-  flexWrap: "wrap",
-  gap: "12px",
-};
-
-const actionWithHelpStyle: CSSProperties = {
-  position: "relative",
-  display: "inline-flex",
-  alignItems: "center",
-};
-
-const purchasePriceActionStyle: CSSProperties = {
-  position: "relative",
-  marginLeft: "auto",
-  display: "flex",
-  alignItems: "center",
-};
-
-const helpTooltipStyle: CSSProperties = {
-  position: "absolute",
-  top: "calc(100% + 8px)",
-  zIndex: 40,
-  width: "min(320px, calc(100vw - 40px))",
-  padding: "9px 11px",
+  padding: "0 11px",
   borderWidth: "1px",
   borderStyle: "solid",
-  borderColor: "#b8c5d1",
+  borderColor: "#b9c8d4",
   borderRadius: "7px",
   background: "#ffffff",
   color: "#2c3e50",
-  boxShadow: "0 6px 18px rgba(0, 0, 0, 0.16)",
-  fontSize: "0.82rem",
-  fontWeight: 500,
-  lineHeight: 1.35,
-  pointerEvents: "none",
+  fontWeight: 800,
+  textDecoration: "none",
+  boxShadow: "0 1px 2px rgba(15, 23, 42, 0.05)",
 };
 
-const configurationFieldStyle: CSSProperties = {
-  display: "block",
-};
-
-const purchasePriceToggleStyle: CSSProperties = {
-  minHeight: "58px",
+const topBarActionsStyle: CSSProperties = {
+  minWidth: 0,
   display: "flex",
   alignItems: "center",
-  gap: "10px",
-  padding: "9px 13px",
-  borderWidth: "1px",
-  borderStyle: "solid",
-  borderColor: "#b8c5d1",
-  borderRadius: "8px",
-  background: "#fff",
-  color: "#2c3e50",
-  textAlign: "left",
-  cursor: "pointer",
-  boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-};
-
-const purchasePriceToggleActiveStyle: CSSProperties = {
-  borderColor: "#2980b9",
-  background: "#eaf4fb",
-  boxShadow: "0 0 0 2px rgba(41,128,185,0.12)",
-};
-
-const purchasePriceToggleIconStyle: CSSProperties = {
-  fontSize: "1.2rem",
-};
-
-const roleBudgetMenuStyle: CSSProperties = {
-  marginBottom: "14px",
-  padding: "13px",
-  border: "1px solid #c9d8e5",
-  borderRadius: "8px",
-  background: "#fff",
-};
-
-const roleBudgetMenuHeaderStyle: CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "start",
-  gap: "12px",
-  marginBottom: "11px",
-};
-
-const roleBudgetHelpStyle: CSSProperties = {
-  margin: "4px 0 0",
-  color: "#637381",
-  fontSize: "0.82rem",
-};
-
-const plannedBudgetBadgeStyle: CSSProperties = {
-  flexShrink: 0,
-  padding: "5px 9px",
-  borderRadius: "999px",
-  background: "#eaf4fb",
-  color: "#2471a3",
-  fontWeight: 800,
-  fontSize: "0.82rem",
-};
-
-const roleBudgetInputsStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))",
-  gap: "10px",
-};
-
-const roleBudgetFieldStyle: CSSProperties = {
-  minWidth: 0,
-};
-
-const roleBudgetStatusStyle: CSSProperties = {
-  marginTop: "10px",
-  padding: "8px 10px",
-  borderRadius: "6px",
-  background: "#f3f8fc",
-  color: "#34495e",
-  fontSize: "0.84rem",
-};
-
-const roleBudgetStatusWarningStyle: CSSProperties = {
-  background: "#ffebee",
-  color: "#b03a2e",
-};
-
-const optionDescriptionStyle: CSSProperties = {
-  display: "block",
-  marginTop: "2px",
-  color: "#637381",
-  fontSize: "0.78rem",
-  fontWeight: 400,
+  justifyContent: "flex-end",
+  gap: "8px",
 };
 
 const filterBinButtonStyle: CSSProperties = {
@@ -2318,125 +1617,6 @@ const controlStyle: CSSProperties = {
   boxShadow: "inset 0 1px 2px rgba(0,0,0,0.06)",
   outline: "none",
   fontSize: "0.95rem",
-};
-
-const columnsVisibilityPanelStyle: CSSProperties = {
-  marginBottom: "14px",
-  padding: "0 14px",
-  border: "1px solid #d7dee5",
-  borderRadius: "8px",
-  background: "#fdfdfd",
-};
-
-const columnsPanelContentStyle: CSSProperties = {
-  padding: "0 0 14px",
-};
-
-const columnsPanelHeaderStyle: CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: "10px",
-  marginBottom: "10px",
-};
-
-const columnUtilityButtonsStyle: CSSProperties = {
-  display: "flex",
-  gap: "8px",
-  flexWrap: "wrap",
-};
-
-const columnGroupStyle: CSSProperties = {
-  padding: "10px",
-  borderWidth: "1px",
-  borderStyle: "solid",
-  borderColor: "#e1e6eb",
-  borderRadius: "7px",
-  background: "#fff",
-};
-
-const strategyColumnGroupStyle: CSSProperties = {
-  ...columnGroupStyle,
-  marginTop: "10px",
-  borderColor: "#d7c8a2",
-  background: "#fffaf0",
-};
-
-const columnGroupTitleStyle: CSSProperties = {
-  margin: "0 0 8px",
-  color: "#2c3e50",
-  fontSize: "0.9rem",
-};
-
-const emptyStrategiesStyle: CSSProperties = {
-  margin: 0,
-  color: "#7f8c8d",
-  fontSize: "0.84rem",
-};
-
-const columnHelpStyle: CSSProperties = {
-  margin: "0 0 9px",
-  color: "#637381",
-  fontSize: "0.82rem",
-};
-
-const columnButtonsStyle: CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: "7px",
-};
-
-const columnDragItemStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "stretch",
-  borderRadius: "5px",
-  cursor: "grab",
-  transition: "opacity 0.15s ease",
-};
-
-const dragHandleStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  padding: "0 6px",
-  borderWidth: "1px 0 1px 1px",
-  borderStyle: "solid",
-  borderColor: "#95a5a6",
-  borderRadius: "5px 0 0 5px",
-  background: "#ecf0f1",
-  color: "#5d6d7e",
-  fontSize: "0.8rem",
-  userSelect: "none",
-};
-
-const columnButtonStyle: CSSProperties = {
-  padding: "6px 10px",
-  borderWidth: "1px",
-  borderStyle: "solid",
-  borderColor: "#95a5a6",
-  borderRadius: "0 5px 5px 0",
-  fontWeight: 700,
-  cursor: "pointer",
-};
-
-
-
-const resetAuctionButtonStyle: CSSProperties = {
-  padding: "8px 12px",
-  border: 0,
-  borderRadius: "5px",
-  background: "#c0392b",
-  color: "#fff",
-  fontWeight: 700,
-  cursor: "pointer",
-};
-
-const smallButtonStyle: CSSProperties = {
-  padding: "6px 10px",
-  border: "1px solid #aaa",
-  borderRadius: "5px",
-  background: "#fff",
-  cursor: "pointer",
 };
 
 const summaryStyle: CSSProperties = {
