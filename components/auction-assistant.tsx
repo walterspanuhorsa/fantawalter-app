@@ -1144,8 +1144,14 @@ export default function AuctionAssistant({
             min-width: 0 !important;
           }
 
-          .fantawalter-summary {
-            gap: 8px !important;
+          .fantawalter-service-bar {
+            flex-wrap: wrap !important;
+          }
+
+          .fantawalter-service-info {
+            order: 3 !important;
+            flex-basis: 100% !important;
+            justify-content: flex-start !important;
           }
         }
 
@@ -1160,14 +1166,23 @@ export default function AuctionAssistant({
             border-radius: 8px !important;
           }
 
-          .fantawalter-top-bar {
-            align-items: stretch !important;
+          .fantawalter-service-bar {
+            align-items: center !important;
+            padding: 8px !important;
+          }
+
+          .fantawalter-service-info {
             flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 3px !important;
+          }
+
+          .fantawalter-service-divider {
+            display: none !important;
           }
 
           .fantawalter-top-actions {
-            width: 100% !important;
-            justify-content: flex-start !important;
+            margin-left: auto !important;
           }
 
           .fantawalter-filter-field {
@@ -1178,34 +1193,54 @@ export default function AuctionAssistant({
             width: 100% !important;
           }
 
-          .fantawalter-summary {
-            flex-direction: column !important;
-          }
         }
       `}</style>
+
+      <section
+        className="fantawalter-service-bar"
+        style={serviceBarStyle}
+      >
+        <Link href="/configurazione" style={settingsLinkStyle}>
+          <span aria-hidden="true">⚙️</span>
+          <span>Configurazione</span>
+        </Link>
+
+        <div
+          className="fantawalter-service-info"
+          style={serviceInfoStyle}
+        >
+          <span>
+            Giocatori disponibili: {" "}
+            <strong>{availablePlayersCount}</strong>
+          </span>
+
+          <span
+            className="fantawalter-service-divider"
+            aria-hidden="true"
+            style={serviceDividerStyle}
+          >
+            •
+          </span>
+
+          <span>
+            Aggiornato: {" "}
+            <strong>{formatLastUpdate(lastUpdate)}</strong>
+          </span>
+        </div>
+
+        <div
+          className="fantawalter-top-actions"
+          style={topBarActionsStyle}
+        >
+          <PayPalSupportButton />
+        </div>
+      </section>
 
       <div className="fantawalter-layout" style={layoutStyle}>
         <section
           className="fantawalter-main-panel"
           style={containerStyle}
         >
-          <section
-            className="fantawalter-top-bar"
-            style={topBarStyle}
-          >
-            <Link href="/configurazione" style={settingsLinkStyle}>
-              <span aria-hidden="true">⚙️</span>
-              <span>Configurazione</span>
-            </Link>
-
-            <div
-              className="fantawalter-top-actions"
-              style={topBarActionsStyle}
-            >
-              <PayPalSupportButton />
-            </div>
-          </section>
-
           <div style={filtersStyle}>
             <label className="fantawalter-filter-field">
               <span style={labelStyle}>Ruolo</span>
@@ -1297,18 +1332,6 @@ export default function AuctionAssistant({
                 </span>
               )}
             </button>
-          </div>
-
-          <div className="fantawalter-summary" style={summaryStyle}>
-            <span>
-              Giocatori nella lista {" "}
-              <strong>{availablePlayersCount}</strong>
-            </span>
-
-            <span>
-              Ultimo aggiornamento: {" "}
-              <strong>{formatLastUpdate(lastUpdate)}</strong>
-            </span>
           </div>
 
           <div style={tableWrapperStyle}>
@@ -1642,19 +1665,36 @@ const rightPanelStyle: CSSProperties = {
   boxShadow: "0 8px 24px rgba(15, 23, 42, 0.06)",
 };
 
-const topBarStyle: CSSProperties = {
-  minHeight: "52px",
-  marginBottom: "12px",
-  padding: "8px 10px",
+const serviceBarStyle: CSSProperties = {
+  maxWidth: "1900px",
+  minHeight: "46px",
+  margin: "0 auto 12px",
+  padding: "6px 8px",
   display: "flex",
   alignItems: "center",
-  justifyContent: "space-between",
-  gap: "10px",
+  gap: "12px",
   borderWidth: "1px",
   borderStyle: "solid",
   borderColor: "#d7e0e7",
-  borderRadius: "8px",
-  background: "#f8fafc",
+  borderRadius: "10px",
+  background: "#ffffff",
+  boxShadow: "0 4px 14px rgba(15, 23, 42, 0.05)",
+};
+
+const serviceInfoStyle: CSSProperties = {
+  minWidth: 0,
+  flex: "1 1 auto",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flexWrap: "wrap",
+  gap: "8px",
+  color: "#52616d",
+  fontSize: "0.88rem",
+};
+
+const serviceDividerStyle: CSSProperties = {
+  color: "#a0acb7",
 };
 
 const settingsLinkStyle: CSSProperties = {
@@ -1741,21 +1781,6 @@ const controlStyle: CSSProperties = {
   boxShadow: "inset 0 1px 2px rgba(0,0,0,0.06)",
   outline: "none",
   fontSize: "0.95rem",
-};
-
-const summaryStyle: CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: "10px",
-  marginBottom: "12px",
-  padding: "9px 11px",
-  borderWidth: "1px",
-  borderStyle: "solid",
-  borderColor: "#dbe7f0",
-  borderRadius: "8px",
-  background: "#f6f9fc",
-  color: "#425466",
-  fontSize: "0.9rem",
 };
 
 const tableWrapperStyle: CSSProperties = {
