@@ -711,7 +711,6 @@ export default function SquadPanel({
               >
                 Az.
               </th>
-              <th style={headerStyle}>R</th>
               <th
                 style={{
                   ...headerStyle,
@@ -773,22 +772,26 @@ export default function SquadPanel({
                     </div>
                   </td>
 
-                  <td
-                    style={{
-                      ...cellStyle,
-                      ...getRoleStyle(role),
-                    }}
-                  >
-                    {role ?? "-"}
-                  </td>
                   <td style={playerCellStyle}>
                     <span style={playerIdentityStyle}>
-                      <span style={playerTeamStyle}>
-                        {displayValue(player.team)}
+                      <span
+                        title={`Ruolo ${role ?? "-"}`}
+                        style={{
+                          ...squadPlayerRoleBadgeStyle,
+                          ...getRoleStyle(role),
+                        }}
+                      >
+                        {role ?? "-"}
                       </span>
-                      <strong style={playerNameStyle}>
-                        {displayValue(player.nome)}
-                      </strong>
+
+                      <span style={playerTextStyle}>
+                        <span style={playerTeamStyle}>
+                          {displayValue(player.team)}
+                        </span>
+                        <strong style={playerNameStyle}>
+                          {displayValue(player.nome)}
+                        </strong>
+                      </span>
                     </span>
                   </td>
                   <td style={cellStyle}>
@@ -816,7 +819,7 @@ export default function SquadPanel({
             {sortedPlayers.length === 0 && (
               <tr>
                 <td
-                  colSpan={recordPurchasePrice ? 8 : 7}
+                  colSpan={recordPurchasePrice ? 7 : 6}
                   style={emptyCellStyle}
                 >
                   Nessun giocatore acquistato.
@@ -1068,26 +1071,29 @@ function getRoleStyle(
   switch (role) {
     case "P":
       return {
-        background: "#fff3e0",
-        fontWeight: 700,
+        background: "#d99000",
+        color: "#ffffff",
       };
     case "D":
       return {
-        background: "#e8f5e9",
-        fontWeight: 700,
+        background: "#219653",
+        color: "#ffffff",
       };
     case "C":
       return {
-        background: "#e1f5fe",
-        fontWeight: 700,
+        background: "#2d9cdb",
+        color: "#ffffff",
       };
     case "A":
       return {
-        background: "#ffebee",
-        fontWeight: 700,
+        background: "#c44536",
+        color: "#ffffff",
       };
     default:
-      return {};
+      return {
+        background: "#7f8c8d",
+        color: "#ffffff",
+      };
   }
 }
 
@@ -1226,7 +1232,7 @@ const tableWrapperStyle: CSSProperties = {
 
 const tableStyle: CSSProperties = {
   width: "100%",
-  minWidth: "540px",
+  minWidth: "500px",
   borderCollapse: "separate",
   borderSpacing: 0,
   background: "#fff",
@@ -1275,28 +1281,48 @@ const cellStyle: CSSProperties = {
 
 const playerCellStyle: CSSProperties = {
   ...cellStyle,
-  minWidth: "118px",
-  paddingTop: "3px",
-  paddingBottom: "3px",
+  minWidth: "132px",
+  paddingTop: "2px",
+  paddingBottom: "2px",
 };
 
 const playerIdentityStyle: CSSProperties = {
   display: "flex",
+  alignItems: "center",
+  gap: "6px",
+  lineHeight: 1.08,
+};
+
+const squadPlayerRoleBadgeStyle: CSSProperties = {
+  width: "22px",
+  height: "22px",
+  flexShrink: 0,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  borderRadius: "50%",
+  color: "#243746",
+  fontSize: "0.68rem",
+  fontWeight: 900,
+};
+
+const playerTextStyle: CSSProperties = {
+  minWidth: 0,
+  display: "flex",
   flexDirection: "column",
   gap: "1px",
-  lineHeight: 1.1,
 };
 
 const playerTeamStyle: CSSProperties = {
   color: "#71808d",
-  fontSize: "0.62rem",
+  fontSize: "0.59rem",
   fontWeight: 700,
   letterSpacing: "0.03em",
 };
 
 const playerNameStyle: CSSProperties = {
   color: "#243746",
-  fontSize: "0.76rem",
+  fontSize: "0.72rem",
 };
 
 const actionsCellStyle: CSSProperties = {
