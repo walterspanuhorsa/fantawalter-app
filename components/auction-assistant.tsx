@@ -1030,42 +1030,6 @@ export default function AuctionAssistant({
 
       purchasePrice = Math.round(parsedPrice);
 
-      const plannedRoleBudget = roleBudgets[role];
-
-      if (plannedRoleBudget > 0) {
-        const currentRoleSpent = purchasedPlayers.reduce(
-          (total, purchasedPlayer) => {
-            if (getPlayerRole(purchasedPlayer) !== role) {
-              return total;
-            }
-
-            return (
-              total +
-              (purchasePrices[getPlayerKey(purchasedPlayer)] ?? 0)
-            );
-          },
-          0,
-        );
-        const projectedRoleSpent =
-          currentRoleSpent + purchasePrice;
-
-        if (projectedRoleSpent > plannedRoleBudget) {
-          const overrun =
-            projectedRoleSpent - plannedRoleBudget;
-          const roleLabel = ROLE_PLURAL_LABELS[role];
-          const confirmed = window.confirm(
-            `Con questo acquisto la spesa per i ${roleLabel} ` +
-              `salirebbe a ${projectedRoleSpent} crediti, ` +
-              `superando di ${overrun} il budget previsto di ` +
-              `${plannedRoleBudget} crediti. Vuoi confermare ` +
-              `comunque l'acquisto?`,
-          );
-
-          if (!confirmed) {
-            return;
-          }
-        }
-      }
     }
 
     setPurchasedPlayerKeys((currentKeys) => {
