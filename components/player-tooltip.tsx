@@ -37,6 +37,7 @@ type AlertLevel = "yellow" | "orange" | "red";
 interface PurchaseAlert {
   level: AlertLevel;
   text: string;
+  critical?: boolean;
 }
 
 interface DetailItem {
@@ -164,9 +165,10 @@ function getPotentialPurchaseAlerts(
   if (purchasedInRole >= roleLimits[role]) {
     alerts.push({
       level: "red",
+      critical: true,
       text:
-        `Raggiungeresti il limite di ${roleLimits[role]} ` +
-        `giocatori per il ruolo ${role}.`,
+        `Hai già raggiunto il limite massimo per il ruolo ${role}: ` +
+        `${purchasedInRole}/${roleLimits[role]}.`,
     });
   }
 
@@ -600,8 +602,18 @@ export default function PlayerTooltip({
         ) : (
           <div style={alertsListStyle}>
             {purchaseAlerts.map((alert, index) => (
-              <p key={`${alert.text}-${index}`} style={alertLineStyle}>
-                <span aria-hidden="true">{getAlertIcon(alert.level)}</span>{" "}
+              <p
+                key={`${alert.text}-${index}`}
+                style={{
+                  ...alertLineStyle,
+                  ...(alert.critical
+                    ? criticalAlertLineStyle
+                    : {}),
+                }}
+              >
+                <span aria-hidden="true">
+                  {getAlertIcon(alert.level)}
+                </span>{" "}
                 {alert.text}
               </p>
             ))}
@@ -718,4 +730,9 @@ const alertsListStyle: CSSProperties = {
 
 const alertLineStyle: CSSProperties = {
   margin: "4px 0",
+};
+
+const criticalAlertLineStyle: CSSProperties = {
+  color: "#ff6b6b",
+  fontWeight: 800,
 };
