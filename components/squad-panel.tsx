@@ -1044,23 +1044,23 @@ function getRoleCounterStyle(
   switch (role) {
     case "P":
       return {
-        borderColor: "#f0c27b",
-        background: "#fff8ed",
+        borderColor: "var(--fw-warning-border)",
+        background: "var(--fw-warning-soft)",
       };
     case "D":
       return {
-        borderColor: "#9fd4a7",
-        background: "#f1faf2",
+        borderColor: "var(--fw-success-border)",
+        background: "var(--fw-success-soft)",
       };
     case "C":
       return {
-        borderColor: "#8fcce6",
-        background: "#f0f9fd",
+        borderColor: "var(--fw-accent-border)",
+        background: "var(--fw-info-soft)",
       };
     case "A":
       return {
-        borderColor: "#e8a2aa",
-        background: "#fff4f5",
+        borderColor: "var(--fw-danger-border)",
+        background: "var(--fw-danger-soft)",
       };
   }
 }
@@ -1103,17 +1103,17 @@ function getAlertStyle(
   switch (level) {
     case "red":
       return {
-        background: "#ffebee",
+        background: "var(--fw-role-a-soft)",
         borderLeftColor: "#d32f2f",
       };
     case "orange":
       return {
-        background: "#fff3e0",
+        background: "var(--fw-role-p-soft)",
         borderLeftColor: "#f57c00",
       };
     case "yellow":
       return {
-        background: "#fffde7",
+        background: "var(--fw-warning-soft)",
         borderLeftColor: "#fbc02d",
       };
   }
@@ -1179,7 +1179,7 @@ const roleCounterCardStyle: CSSProperties = {
 const roleCounterLabelStyle: CSSProperties = {
   minWidth: 0,
   overflow: "hidden",
-  color: "#4d5d6c",
+  color: "var(--fw-text-secondary)",
   fontSize: "0.68rem",
   fontWeight: 700,
   textOverflow: "ellipsis",
@@ -1188,7 +1188,7 @@ const roleCounterLabelStyle: CSSProperties = {
 
 const roleCounterValueStyle: CSSProperties = {
   flexShrink: 0,
-  color: "#243746",
+  color: "var(--fw-heading)",
   fontSize: "0.78rem",
 };
 
@@ -1201,10 +1201,10 @@ const purchaseBudgetSummaryStyle: CSSProperties = {
   marginBottom: "8px",
   borderWidth: "1px",
   borderStyle: "solid",
-  borderColor: "#d6e4ef",
+  borderColor: "var(--fw-border)",
   borderRadius: "6px",
-  background: "#f4f9fd",
-  color: "#2c3e50",
+  background: "var(--fw-panel-soft)",
+  color: "var(--fw-heading)",
   fontSize: "0.8rem",
 };
 
@@ -1212,8 +1212,8 @@ const priceCellStyle: CSSProperties = {
   padding: "4px 5px",
   borderWidth: "0 0 1px 1px",
   borderStyle: "solid",
-  borderColor: "#dfe5ea",
-  background: "#fff",
+  borderColor: "var(--fw-border-soft)",
+  background: "var(--fw-panel-bg)",
   whiteSpace: "nowrap",
   textAlign: "right",
   fontSize: "0.76rem",
@@ -1225,9 +1225,9 @@ const tableWrapperStyle: CSSProperties = {
   overflow: "auto",
   borderWidth: "1px",
   borderStyle: "solid",
-  borderColor: "#d7dee5",
+  borderColor: "var(--fw-border)",
   borderRadius: "6px",
-  background: "#fff",
+  background: "var(--fw-panel-bg)",
 };
 
 const tableStyle: CSSProperties = {
@@ -1235,7 +1235,7 @@ const tableStyle: CSSProperties = {
   minWidth: "500px",
   borderCollapse: "separate",
   borderSpacing: 0,
-  background: "#fff",
+  background: "var(--fw-panel-bg)",
   fontSize: "0.76rem",
 };
 
@@ -1246,8 +1246,8 @@ const headerStyle: CSSProperties = {
   padding: "6px 5px",
   borderWidth: "0 0 1px 1px",
   borderStyle: "solid",
-  borderColor: "#52697d",
-  background: "#34495e",
+  borderColor: "var(--fw-table-head-border)",
+  background: "var(--fw-table-head)",
   color: "#fff",
   textAlign: "left",
   whiteSpace: "nowrap",
@@ -1272,8 +1272,8 @@ const cellStyle: CSSProperties = {
   padding: "4px 5px",
   borderWidth: "0 0 1px 1px",
   borderStyle: "solid",
-  borderColor: "#dfe5ea",
-  background: "#fff",
+  borderColor: "var(--fw-border-soft)",
+  background: "var(--fw-panel-bg)",
   whiteSpace: "nowrap",
   fontSize: "0.76rem",
   lineHeight: 1.15,
@@ -1301,7 +1301,7 @@ const squadPlayerRoleBadgeStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   borderRadius: "50%",
-  color: "#243746",
+  color: "var(--fw-heading)",
   fontSize: "0.68rem",
   fontWeight: 900,
 };
@@ -1314,14 +1314,14 @@ const playerTextStyle: CSSProperties = {
 };
 
 const playerTeamStyle: CSSProperties = {
-  color: "#71808d",
+  color: "var(--fw-text-muted)",
   fontSize: "0.59rem",
   fontWeight: 700,
   letterSpacing: "0.03em",
 };
 
 const playerNameStyle: CSSProperties = {
-  color: "#243746",
+  color: "var(--fw-heading)",
   fontSize: "0.72rem",
 };
 
@@ -1333,13 +1333,13 @@ const actionsCellStyle: CSSProperties = {
   width: "54px",
   minWidth: "54px",
   padding: "2px",
-  background: "#fff",
+  background: "var(--fw-panel-bg)",
   boxShadow: "2px 0 3px rgba(44, 62, 80, 0.05)",
 };
 
 const emptyCellStyle: CSSProperties = {
   padding: "18px",
-  color: "#6b7b88",
+  color: "var(--fw-text-muted)",
   textAlign: "center",
   fontSize: "0.8rem",
 };
@@ -1360,10 +1360,10 @@ const returnToListButtonStyle: CSSProperties = {
   padding: 0,
   borderWidth: "1px",
   borderStyle: "solid",
-  borderColor: "#7fb9df",
+  borderColor: "var(--fw-accent-border)",
   borderRadius: "4px",
-  background: "#eaf5fc",
-  color: "#2471a3",
+  background: "var(--fw-accent-soft)",
+  color: "var(--fw-accent-text)",
   fontSize: "0.82rem",
   fontWeight: 800,
   lineHeight: 1,
@@ -1379,10 +1379,10 @@ const moveToBinButtonStyle: CSSProperties = {
   padding: 0,
   borderWidth: "1px",
   borderStyle: "solid",
-  borderColor: "#e0b4b4",
+  borderColor: "var(--fw-danger-border)",
   borderRadius: "4px",
-  background: "#fff5f5",
-  color: "#c0392b",
+  background: "var(--fw-danger-soft)",
+  color: "var(--fw-danger-text)",
   fontSize: "0.68rem",
   lineHeight: 1,
   cursor: "pointer",
@@ -1414,7 +1414,7 @@ const sectionTitleRowStyle: CSSProperties = {
 
 const sectionTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#2c3e50",
+  color: "var(--fw-heading)",
   fontSize: "1rem",
 };
 
@@ -1426,8 +1426,8 @@ const sectionCountBadgeStyle: CSSProperties = {
   justifyContent: "center",
   padding: "0 6px",
   borderRadius: "999px",
-  background: "#eef2f5",
-  color: "#4d5d6c",
+  background: "var(--fw-panel-muted)",
+  color: "var(--fw-text-secondary)",
   fontSize: "0.72rem",
   fontWeight: 800,
 };
@@ -1459,7 +1459,7 @@ const dismissButtonStyle: CSSProperties = {
   border: 0,
   borderRadius: "4px",
   background: "rgba(255,255,255,0.55)",
-  color: "#66737f",
+  color: "var(--fw-text-muted)",
   fontSize: "1.15rem",
   lineHeight: 1,
   cursor: "pointer",
@@ -1480,20 +1480,20 @@ const statisticsBlockStyle: CSSProperties = {
   padding: "10px 11px",
   borderWidth: "1px",
   borderStyle: "solid",
-  borderColor: "#dfe5ea",
+  borderColor: "var(--fw-border-soft)",
   borderRadius: "8px",
-  background: "#fff",
+  background: "var(--fw-panel-bg)",
   boxShadow: "0 2px 6px rgba(44, 62, 80, 0.05)",
 };
 
 const statisticsSummaryStyle: CSSProperties = {
-  color: "#2c3e50",
+  color: "var(--fw-heading)",
   fontWeight: 800,
   cursor: "pointer",
 };
 
 const statisticLineStyle: CSSProperties = {
   margin: "5px 0",
-  color: "#4d5d6c",
+  color: "var(--fw-text-secondary)",
   fontSize: "0.86rem",
 };

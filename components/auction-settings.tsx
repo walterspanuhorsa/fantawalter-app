@@ -42,6 +42,10 @@ type SettingsSection =
   | "table"
   | "reset";
 
+type ThemeMode = "light" | "dark";
+
+const THEME_STORAGE_KEY = "fantawalter-theme-v1";
+
 const SETTINGS_SECTIONS: Array<{
   key: SettingsSection;
   label: string;
@@ -78,6 +82,8 @@ export default function AuctionSettingsPanel({
   const [storageReady, setStorageReady] = useState(false);
   const [activeSection, setActiveSection] =
     useState<SettingsSection>("general");
+  const [themeMode, setThemeMode] =
+    useState<ThemeMode>("light");
 
   const allColumns = useMemo(
     () => getAllColumns(strategyColumns),
@@ -137,6 +143,16 @@ export default function AuctionSettingsPanel({
         ),
       );
 
+      const savedTheme = window.localStorage.getItem(
+        THEME_STORAGE_KEY,
+      );
+      const resolvedTheme: ThemeMode =
+        savedTheme === "dark" ? "dark" : "light";
+
+      setThemeMode(resolvedTheme);
+      document.documentElement.dataset.theme = resolvedTheme;
+      document.documentElement.style.colorScheme = resolvedTheme;
+
       setStorageReady(true);
     });
 
@@ -152,6 +168,24 @@ export default function AuctionSettingsPanel({
 
     saveAuctionSettings(settings);
   }, [settings, storageReady]);
+
+  function changeTheme(nextTheme: ThemeMode): void {
+    setThemeMode(nextTheme);
+    document.documentElement.dataset.theme = nextTheme;
+    document.documentElement.style.colorScheme = nextTheme;
+
+    try {
+      window.localStorage.setItem(
+        THEME_STORAGE_KEY,
+        nextTheme,
+      );
+    } catch (error) {
+      console.error(
+        "Impossibile salvare il tema grafico.",
+        error,
+      );
+    }
+  }
 
   function updateSettings(
     updater: (current: AuctionSettings) => AuctionSettings,
@@ -322,16 +356,24 @@ export default function AuctionSettingsPanel({
           aria-pressed={isVisible}
           style={{
             ...columnButtonStyle,
-            background: isVisible ? "#e9f3ff" : "#f2f4f6",
-            borderColor: isVisible ? "#4f8fca" : "#c9d1d8",
-            color: isVisible ? "#174c78" : "#68737d",
+            background: isVisible
+              ? "var(--fw-accent-soft)"
+              : "var(--fw-control-muted-bg)",
+            borderColor: isVisible
+              ? "var(--fw-accent-border)"
+              : "var(--fw-border)",
+            color: isVisible
+              ? "var(--fw-accent-text)"
+              : "var(--fw-control-muted-text)",
           }}
         >
           <span
             aria-hidden="true"
             style={{
               ...columnStateDotStyle,
-              background: isVisible ? "#2f80c5" : "#aeb7bf",
+              background: isVisible
+                ? "var(--fw-accent)"
+                : "var(--fw-text-muted)",
             }}
           />
           {column.label}
@@ -372,6 +414,54 @@ export default function AuctionSettingsPanel({
               aria-label="Budget iniziale"
               style={numberControlStyle}
             />
+          </div>
+
+          <div className="fantawalter-setting-row" style={settingRowStyle}>
+            <div style={settingCopyStyle}>
+              <strong style={settingTitleStyle}>
+                Tema grafico
+              </strong>
+              <span style={settingDescriptionStyle}>
+                Scegli tra la versione chiara e la versione nera
+                dell’interfaccia.
+              </span>
+            </div>
+
+            <div
+              role="group"
+              aria-label="Tema grafico"
+              style={themeSelectorStyle}
+            >
+              <button
+                type="button"
+                aria-pressed={themeMode === "light"}
+                onClick={() => changeTheme("light")}
+                style={{
+                  ...themeButtonStyle,
+                  ...(themeMode === "light"
+                    ? themeButtonActiveStyle
+                    : {}),
+                }}
+              >
+                <span aria-hidden="true">☀</span>
+                Chiaro
+              </button>
+
+              <button
+                type="button"
+                aria-pressed={themeMode === "dark"}
+                onClick={() => changeTheme("dark")}
+                style={{
+                  ...themeButtonStyle,
+                  ...(themeMode === "dark"
+                    ? themeButtonActiveStyle
+                    : {}),
+                }}
+              >
+                <span aria-hidden="true">●</span>
+                Nero
+              </button>
+            </div>
           </div>
 
           <div className="fantawalter-setting-row" style={settingRowStyle}>
@@ -965,8 +1055,8 @@ function SectionHeader({
 const pageStyle: CSSProperties = {
   minHeight: "100vh",
   padding: "24px",
-  background: "#f2f5f7",
-  color: "#1f2933",
+  background: "var(--fw-page-bg)",
+  color: "var(--fw-text)",
   fontFamily: "Arial, sans-serif",
 };
 
@@ -983,10 +1073,10 @@ const backLinkStyle: CSSProperties = {
   padding: "0 13px",
   borderWidth: "1px",
   borderStyle: "solid",
-  borderColor: "#9ec5df",
+  borderColor: "var(--fw-accent-border)",
   borderRadius: "7px",
-  background: "#ffffff",
-  color: "#175a8a",
+  background: "var(--fw-panel-bg)",
+  color: "var(--fw-accent-text)",
   fontSize: "0.92rem",
   fontWeight: 800,
   textDecoration: "none",
@@ -1003,14 +1093,14 @@ const headerStyle: CSSProperties = {
 
 const titleStyle: CSSProperties = {
   margin: 0,
-  color: "#243746",
+  color: "var(--fw-heading)",
   fontSize: "clamp(1.9rem, 4vw, 2.55rem)",
   lineHeight: 1.1,
 };
 
 const subtitleStyle: CSSProperties = {
   margin: "8px 0 0",
-  color: "#637381",
+  color: "var(--fw-text-muted)",
   fontSize: "0.96rem",
 };
 
@@ -1021,10 +1111,10 @@ const saveStatusStyle: CSSProperties = {
   padding: "0 13px",
   borderWidth: "1px",
   borderStyle: "solid",
-  borderColor: "#a9d8ba",
+  borderColor: "var(--fw-success-border)",
   borderRadius: "999px",
-  background: "#edf9f1",
-  color: "#216a3a",
+  background: "var(--fw-success-soft)",
+  color: "var(--fw-success-text)",
   fontSize: "0.84rem",
   fontWeight: 800,
   whiteSpace: "nowrap",
@@ -1046,10 +1136,10 @@ const navigationStyle: CSSProperties = {
   padding: "8px",
   borderWidth: "1px",
   borderStyle: "solid",
-  borderColor: "#dbe2e8",
+  borderColor: "var(--fw-border)",
   borderRadius: "10px",
-  background: "#ffffff",
-  boxShadow: "0 3px 12px rgba(35, 55, 70, 0.05)",
+  background: "var(--fw-panel-bg)",
+  boxShadow: "var(--fw-shadow-soft)",
 };
 
 const navigationButtonStyle: CSSProperties = {
@@ -1064,15 +1154,15 @@ const navigationButtonStyle: CSSProperties = {
   borderColor: "transparent",
   borderRadius: "7px",
   background: "transparent",
-  color: "#34495e",
+  color: "var(--fw-text-secondary)",
   textAlign: "left",
   cursor: "pointer",
 };
 
 const navigationButtonActiveStyle: CSSProperties = {
-  borderColor: "#b8d5eb",
-  background: "#eaf4fb",
-  color: "#174c78",
+  borderColor: "var(--fw-accent-border)",
+  background: "var(--fw-accent-soft)",
+  color: "var(--fw-accent-text)",
 };
 
 const navigationLabelStyle: CSSProperties = {
@@ -1081,7 +1171,7 @@ const navigationLabelStyle: CSSProperties = {
 };
 
 const navigationDescriptionStyle: CSSProperties = {
-  color: "#71808d",
+  color: "var(--fw-text-muted)",
   fontSize: "0.75rem",
   lineHeight: 1.25,
 };
@@ -1092,10 +1182,10 @@ const contentPanelStyle: CSSProperties = {
   padding: "26px",
   borderWidth: "1px",
   borderStyle: "solid",
-  borderColor: "#dbe2e8",
+  borderColor: "var(--fw-border)",
   borderRadius: "10px",
-  background: "#ffffff",
-  boxShadow: "0 4px 16px rgba(35, 55, 70, 0.06)",
+  background: "var(--fw-panel-bg)",
+  boxShadow: "var(--fw-shadow-soft)",
 };
 
 const sectionHeaderStyle: CSSProperties = {
@@ -1107,18 +1197,18 @@ const sectionHeaderStyle: CSSProperties = {
   marginBottom: "6px",
   borderBottomWidth: "1px",
   borderBottomStyle: "solid",
-  borderBottomColor: "#e5eaee",
+  borderBottomColor: "var(--fw-border-soft)",
 };
 
 const sectionTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#243746",
+  color: "var(--fw-heading)",
   fontSize: "1.35rem",
 };
 
 const sectionDescriptionStyle: CSSProperties = {
   margin: "6px 0 0",
-  color: "#637381",
+  color: "var(--fw-text-muted)",
   fontSize: "0.9rem",
   lineHeight: 1.45,
 };
@@ -1127,8 +1217,8 @@ const sectionMetaStyle: CSSProperties = {
   flexShrink: 0,
   padding: "5px 9px",
   borderRadius: "999px",
-  background: "#edf4fa",
-  color: "#29628d",
+  background: "var(--fw-accent-soft)",
+  color: "var(--fw-accent-text)",
   fontSize: "0.78rem",
   fontWeight: 800,
 };
@@ -1146,7 +1236,7 @@ const settingRowStyle: CSSProperties = {
   padding: "18px 0",
   borderBottomWidth: "1px",
   borderBottomStyle: "solid",
-  borderBottomColor: "#edf0f2",
+  borderBottomColor: "var(--fw-border-soft)",
 };
 
 const compactSettingRowStyle: CSSProperties = {
@@ -1157,7 +1247,7 @@ const compactSettingRowStyle: CSSProperties = {
   padding: "11px 0",
   borderBottomWidth: "1px",
   borderBottomStyle: "solid",
-  borderBottomColor: "#edf0f2",
+  borderBottomColor: "var(--fw-border-soft)",
 };
 
 const settingCopyStyle: CSSProperties = {
@@ -1168,13 +1258,13 @@ const settingCopyStyle: CSSProperties = {
 };
 
 const settingTitleStyle: CSSProperties = {
-  color: "#2c3e50",
+  color: "var(--fw-heading)",
   fontSize: "0.96rem",
 };
 
 const settingDescriptionStyle: CSSProperties = {
   maxWidth: "560px",
-  color: "#71808d",
+  color: "var(--fw-text-muted)",
   fontSize: "0.82rem",
   lineHeight: 1.4,
 };
@@ -1186,13 +1276,49 @@ const numberControlStyle: CSSProperties = {
   padding: "7px 10px",
   borderWidth: "1px",
   borderStyle: "solid",
-  borderColor: "#aebdca",
+  borderColor: "var(--fw-border-strong)",
   borderRadius: "7px",
-  background: "#ffffff",
-  color: "#1f2933",
+  background: "var(--fw-panel-bg)",
+  color: "var(--fw-text)",
   fontSize: "0.95rem",
   textAlign: "right",
   outline: "none",
+};
+
+const themeSelectorStyle: CSSProperties = {
+  display: "inline-flex",
+  gap: "4px",
+  padding: "4px",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "var(--fw-border)",
+  borderRadius: "9px",
+  background: "var(--fw-panel-muted)",
+};
+
+const themeButtonStyle: CSSProperties = {
+  minWidth: "88px",
+  minHeight: "34px",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "7px",
+  padding: "0 11px",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "transparent",
+  borderRadius: "6px",
+  background: "transparent",
+  color: "var(--fw-text-muted)",
+  fontWeight: 800,
+  cursor: "pointer",
+};
+
+const themeButtonActiveStyle: CSSProperties = {
+  borderColor: "var(--fw-accent-border)",
+  background: "var(--fw-panel-bg)",
+  color: "var(--fw-accent-text)",
+  boxShadow: "0 1px 4px rgba(0, 0, 0, 0.16)",
 };
 
 const switchButtonStyle: CSSProperties = {
@@ -1205,18 +1331,18 @@ const switchButtonStyle: CSSProperties = {
   padding: "6px 10px",
   borderWidth: "1px",
   borderStyle: "solid",
-  borderColor: "#bdc7cf",
+  borderColor: "var(--fw-border-strong)",
   borderRadius: "999px",
-  background: "#f5f7f8",
-  color: "#596672",
+  background: "var(--fw-control-muted-bg)",
+  color: "var(--fw-text-secondary)",
   fontWeight: 800,
   cursor: "pointer",
 };
 
 const switchButtonActiveStyle: CSSProperties = {
-  borderColor: "#72b28b",
-  background: "#edf9f1",
-  color: "#216a3a",
+  borderColor: "var(--fw-success-border)",
+  background: "var(--fw-success-soft)",
+  color: "var(--fw-success-text)",
 };
 
 const switchTrackStyle: CSSProperties = {
@@ -1226,7 +1352,7 @@ const switchTrackStyle: CSSProperties = {
   alignItems: "center",
   padding: "2px",
   borderRadius: "999px",
-  background: "#c4ccd2",
+  background: "var(--fw-border-strong)",
 };
 
 const switchThumbStyle: CSSProperties = {
@@ -1244,9 +1370,9 @@ const subsectionStyle: CSSProperties = {
   padding: "18px",
   borderWidth: "1px",
   borderStyle: "solid",
-  borderColor: "#dce5eb",
+  borderColor: "var(--fw-border)",
   borderRadius: "9px",
-  background: "#f9fbfc",
+  background: "var(--fw-panel-soft)",
 };
 
 const subsectionHeaderStyle: CSSProperties = {
@@ -1266,7 +1392,7 @@ const roleBudgetColumnsHeaderStyle: CSSProperties = {
 };
 
 const roleBudgetColumnLabelStyle: CSSProperties = {
-  color: "#71808d",
+  color: "var(--fw-text-muted)",
   fontSize: "0.72rem",
   fontWeight: 800,
   textAlign: "center",
@@ -1305,7 +1431,7 @@ const roleBudgetPrefixStyle: CSSProperties = {
   left: "10px",
   zIndex: 1,
   transform: "translateY(-50%)",
-  color: "#52616d",
+  color: "var(--fw-text-secondary)",
   fontSize: "0.82rem",
   fontWeight: 900,
   pointerEvents: "none",
@@ -1316,7 +1442,7 @@ const roleBudgetSuffixStyle: CSSProperties = {
   top: "50%",
   right: "10px",
   transform: "translateY(-50%)",
-  color: "#52616d",
+  color: "var(--fw-text-secondary)",
   fontSize: "0.82rem",
   fontWeight: 900,
   pointerEvents: "none",
@@ -1324,13 +1450,13 @@ const roleBudgetSuffixStyle: CSSProperties = {
 
 const subsectionTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#2c3e50",
+  color: "var(--fw-heading)",
   fontSize: "1.02rem",
 };
 
 const subsectionDescriptionStyle: CSSProperties = {
   margin: "5px 0 0",
-  color: "#71808d",
+  color: "var(--fw-text-muted)",
   fontSize: "0.82rem",
 };
 
@@ -1338,15 +1464,15 @@ const budgetBadgeStyle: CSSProperties = {
   flexShrink: 0,
   padding: "5px 9px",
   borderRadius: "999px",
-  background: "#eaf4fb",
-  color: "#2471a3",
+  background: "var(--fw-accent-soft)",
+  color: "var(--fw-accent-text)",
   fontSize: "0.78rem",
   fontWeight: 800,
 };
 
 const budgetBadgeWarningStyle: CSSProperties = {
-  background: "#ffebee",
-  color: "#b03a2e",
+  background: "var(--fw-danger-soft)",
+  color: "var(--fw-danger-text)",
 };
 
 const roleBudgetListStyle: CSSProperties = {
@@ -1355,7 +1481,7 @@ const roleBudgetListStyle: CSSProperties = {
 };
 
 const roleNameStyle: CSSProperties = {
-  color: "#34495e",
+  color: "var(--fw-text-secondary)",
   fontWeight: 700,
 };
 
@@ -1363,14 +1489,14 @@ const budgetStatusStyle: CSSProperties = {
   marginTop: "14px",
   padding: "10px 12px",
   borderRadius: "7px",
-  background: "#eef6fb",
-  color: "#34495e",
+  background: "var(--fw-info-soft)",
+  color: "var(--fw-text-secondary)",
   fontSize: "0.84rem",
 };
 
 const budgetStatusWarningStyle: CSSProperties = {
-  background: "#ffebee",
-  color: "#b03a2e",
+  background: "var(--fw-danger-soft)",
+  color: "var(--fw-danger-text)",
 };
 
 const roleLimitsListStyle: CSSProperties = {
@@ -1382,8 +1508,8 @@ const tableInfoStyle: CSSProperties = {
   margin: "18px 0 14px",
   padding: "11px 12px",
   borderRadius: "7px",
-  background: "#f2f6f9",
-  color: "#52616d",
+  background: "var(--fw-panel-muted)",
+  color: "var(--fw-text-secondary)",
   fontSize: "0.84rem",
   lineHeight: 1.4,
 };
@@ -1400,10 +1526,10 @@ const secondaryButtonStyle: CSSProperties = {
   padding: "0 12px",
   borderWidth: "1px",
   borderStyle: "solid",
-  borderColor: "#aeb9c3",
+  borderColor: "var(--fw-border-strong)",
   borderRadius: "6px",
-  background: "#ffffff",
-  color: "#34495e",
+  background: "var(--fw-panel-bg)",
+  color: "var(--fw-text-secondary)",
   fontWeight: 700,
   cursor: "pointer",
 };
@@ -1412,12 +1538,12 @@ const columnSectionStyle: CSSProperties = {
   padding: "16px 0",
   borderTopWidth: "1px",
   borderTopStyle: "solid",
-  borderTopColor: "#edf0f2",
+  borderTopColor: "var(--fw-border-soft)",
 };
 
 const columnSectionTitleStyle: CSSProperties = {
   margin: "0 0 12px",
-  color: "#34495e",
+  color: "var(--fw-text-secondary)",
   fontSize: "0.95rem",
 };
 
@@ -1435,7 +1561,7 @@ const columnButtonStyle: CSSProperties = {
   padding: "6px 10px",
   borderWidth: "1px",
   borderStyle: "solid",
-  borderColor: "#c9d1d8",
+  borderColor: "var(--fw-border)",
   borderRadius: "6px",
   fontWeight: 700,
   cursor: "pointer",
@@ -1450,7 +1576,7 @@ const columnStateDotStyle: CSSProperties = {
 
 const emptyTextStyle: CSSProperties = {
   margin: 0,
-  color: "#71808d",
+  color: "var(--fw-text-muted)",
   fontSize: "0.84rem",
 };
 
@@ -1468,7 +1594,7 @@ const resetItemStyle: CSSProperties = {
   padding: "22px 0",
   borderBottomWidth: "1px",
   borderBottomStyle: "solid",
-  borderBottomColor: "#edf0f2",
+  borderBottomColor: "var(--fw-border-soft)",
 };
 
 const dangerButtonStyle: CSSProperties = {
