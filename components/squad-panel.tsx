@@ -293,8 +293,11 @@ function buildSquadAnalysis(
         id: `LOW_AVG_${role}_TIT`,
         level: "red",
         text:
-          `Media TITOLARITÀ per i ${role} bassa: ` +
-          `${averageTitolarita.toFixed(2)}.`,
+          `Titolarità bassa nel ruolo ${role}: ` +
+          `${averageTitolarita.toLocaleString("it-IT", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}.`,
         dismissible: true,
       });
     }
@@ -304,8 +307,11 @@ function buildSquadAnalysis(
         id: `LOW_AVG_${role}_AFF`,
         level: "red",
         text:
-          `Media AFFIDABILITÀ per i ${role} bassa: ` +
-          `${averageAffidabilita.toFixed(2)}.`,
+          `Affidabilità bassa nel ruolo ${role}: ` +
+          `${averageAffidabilita.toLocaleString("it-IT", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}.`,
         dismissible: true,
       });
     }
@@ -315,8 +321,11 @@ function buildSquadAnalysis(
         id: `LOW_AVG_${role}_INT`,
         level: "red",
         text:
-          `Media INTEGRITÀ per i ${role} bassa: ` +
-          `${averageIntegrita.toFixed(2)}.`,
+          `Integrità bassa nel ruolo ${role}: ` +
+          `${averageIntegrita.toLocaleString("it-IT", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}.`,
         dismissible: true,
       });
     }
@@ -605,7 +614,37 @@ export default function SquadPanel({
   const remainingBudget = initialBudget - totalSpent;
 
   return (
-    <>
+    <section
+      className="fantawalter-squad-root"
+      style={squadRootStyle}
+    >
+      <style>{`
+        .fantawalter-squad-table tbody tr > td {
+          transition:
+            box-shadow 0.15s ease,
+            background-color 0.15s ease;
+        }
+
+        .fantawalter-squad-table tbody tr:nth-child(even) > td {
+          box-shadow: inset 0 0 0 9999px rgba(44, 62, 80, 0.025);
+        }
+
+        .fantawalter-squad-table tbody tr:hover > td {
+          box-shadow: inset 0 0 0 9999px rgba(41, 128, 185, 0.085);
+        }
+
+        @media (max-width: 640px) {
+          .fantawalter-role-counters,
+          .fantawalter-role-limits {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          }
+
+          .fantawalter-squad-table-wrapper {
+            max-height: none !important;
+          }
+        }
+      `}</style>
+
       <div style={squadTitleContainerStyle}>
         <h2 style={squadTitleStyle}>La tua rosa</h2>
         <span style={squadTitleBadgeStyle}>
@@ -613,15 +652,29 @@ export default function SquadPanel({
         </span>
       </div>
 
-      <p style={counterStyle}>
-        P: {roleCounts.P}/{roleLimits.P}
-        {" | "}
-        D: {roleCounts.D}/{roleLimits.D}
-        {" | "}
-        C: {roleCounts.C}/{roleLimits.C}
-        {" | "}
-        A: {roleCounts.A}/{roleLimits.A}
-      </p>
+      <div
+        className="fantawalter-role-counters"
+        style={roleCountersStyle}
+        aria-label="Composizione della rosa per ruolo"
+      >
+        {ROLE_ORDER.map((role) => (
+          <div
+            key={role}
+            style={{
+              ...roleCounterCardStyle,
+              ...getRoleCounterStyle(role),
+            }}
+          >
+            <span style={roleCounterLabelStyle}>
+              {role} · {ROLE_PLURAL_LABELS[role]}
+            </span>
+
+            <strong style={roleCounterValueStyle}>
+              {roleCounts[role]}/{roleLimits[role]}
+            </strong>
+          </div>
+        ))}
+      </div>
 
       {recordPurchasePrice && (
         <div style={purchaseBudgetSummaryStyle}>
@@ -645,40 +698,65 @@ export default function SquadPanel({
         </div>
       )}
 
-      <div style={configurationStyle}>
-        {ROLE_ORDER.map((role) => (
-          <label key={role}>
-            <span style={configurationLabelStyle}>
-              {role}
-            </span>
+      <section style={configurationStyle}>
+        <div style={roleLimitsHeaderStyle}>
+          <strong>Limiti per ruolo</strong>
+          <span style={roleLimitsHelpStyle}>
+            Modifica gli slot previsti per la tua lega.
+          </span>
+        </div>
 
-            <input
-              type="number"
-              min={0}
-              step={1}
-              value={roleLimits[role]}
-              onChange={(event) => {
-                const value =
-                  event.currentTarget.valueAsNumber;
+        <div
+          className="fantawalter-role-limits"
+          style={roleLimitsGridStyle}
+        >
+          {ROLE_ORDER.map((role) => (
+            <label key={role} style={roleLimitFieldStyle}>
+              <span style={configurationLabelStyle}>
+                {role}
+              </span>
 
-                onLimitChange(
-                  role,
-                  Number.isFinite(value)
-                    ? Math.max(0, Math.trunc(value))
-                    : 0,
-                );
-              }}
-              style={limitInputStyle}
-            />
-          </label>
-        ))}
-      </div>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={roleLimits[role]}
+                onChange={(event) => {
+                  const value =
+                    event.currentTarget.valueAsNumber;
 
-      <div style={tableWrapperStyle}>
-        <table style={tableStyle}>
+                  onLimitChange(
+                    role,
+                    Number.isFinite(value)
+                      ? Math.max(0, Math.trunc(value))
+                      : 0,
+                  );
+                }}
+                style={limitInputStyle}
+              />
+            </label>
+          ))}
+        </div>
+      </section>
+
+      <div
+        className="fantawalter-squad-table-wrapper"
+        style={tableWrapperStyle}
+      >
+        <table
+          className="fantawalter-squad-table"
+          style={tableStyle}
+        >
           <thead>
             <tr>
-              <th style={headerStyle}>Azioni</th>
+              <th
+                style={{
+                  ...headerStyle,
+                  ...actionsHeaderStyle,
+                }}
+              >
+                Azioni
+              </th>
               <th style={headerStyle}>R</th>
               <th style={headerStyle}>Squadra</th>
               <th style={headerStyle}>Nome</th>
@@ -710,7 +788,7 @@ export default function SquadPanel({
 
               return (
                 <tr key={getPlayerKey(player)}>
-                  <td style={cellStyle}>
+                  <td style={actionsCellStyle}>
                     <div style={rowActionsStyle}>
                       <button
                         type="button"
@@ -786,7 +864,12 @@ export default function SquadPanel({
 
       {visibleAlerts.length > 0 && (
         <section style={alertsSectionStyle}>
-          <h3>Avvisi strategici</h3>
+          <div style={sectionTitleRowStyle}>
+            <h3 style={sectionTitleStyle}>Avvisi strategici</h3>
+            <span style={sectionCountBadgeStyle}>
+              {visibleAlerts.length}
+            </span>
+          </div>
 
           {visibleAlerts.map((alert) => (
             <div
@@ -823,7 +906,9 @@ export default function SquadPanel({
 
       {purchasedPlayers.length > 0 && (
         <section style={statisticsSectionStyle}>
-          <h2>Statistiche Rosa</h2>
+          <div style={sectionTitleRowStyle}>
+            <h2 style={sectionTitleStyle}>Statistiche rosa</h2>
+          </div>
 
           <div style={statisticsGridStyle}>
             <StatisticsBlock
@@ -869,7 +954,7 @@ export default function SquadPanel({
           </div>
         </section>
       )}
-    </>
+    </section>
   );
 }
 
@@ -920,7 +1005,10 @@ function StatisticsBlock({
     : "";
 
   return (
-    <details open style={statisticsBlockStyle}>
+    <details
+      open={title === "Totale"}
+      style={statisticsBlockStyle}
+    >
       <summary style={statisticsSummaryStyle}>
         {title} ({count})
       </summary>
@@ -982,6 +1070,33 @@ function StatisticsBlock({
   );
 }
 
+function getRoleCounterStyle(
+  role: PlayerRole,
+): CSSProperties {
+  switch (role) {
+    case "P":
+      return {
+        borderColor: "#f0c27b",
+        background: "#fff8ed",
+      };
+    case "D":
+      return {
+        borderColor: "#9fd4a7",
+        background: "#f1faf2",
+      };
+    case "C":
+      return {
+        borderColor: "#8fcce6",
+        background: "#f0f9fd",
+      };
+    case "A":
+      return {
+        borderColor: "#e8a2aa",
+        background: "#fff4f5",
+      };
+  }
+}
+
 function getRoleStyle(
   role: PlayerRole | null,
 ): CSSProperties {
@@ -1033,6 +1148,10 @@ function getAlertStyle(
   }
 }
 
+const squadRootStyle: CSSProperties = {
+  minWidth: 0,
+};
+
 const squadTitleContainerStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
@@ -1041,8 +1160,9 @@ const squadTitleContainerStyle: CSSProperties = {
   padding: "12px 14px",
   marginBottom: "10px",
   borderRadius: "9px",
-  background: "linear-gradient(135deg, #2c3e50, #3f5870)",
+  background: "linear-gradient(135deg, #263746, #3f5870)",
   color: "#fff",
+  boxShadow: "0 4px 12px rgba(38, 55, 70, 0.18)",
 };
 
 const squadTitleStyle: CSSProperties = {
@@ -1055,25 +1175,61 @@ const squadTitleBadgeStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  minWidth: "52px",
-  padding: "4px 8px",
+  minWidth: "56px",
+  padding: "5px 9px",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "rgba(255,255,255,0.28)",
   borderRadius: "999px",
-  background: "rgba(255,255,255,0.18)",
+  background: "rgba(255,255,255,0.14)",
   fontWeight: 800,
 };
 
-const counterStyle: CSSProperties = {
+const roleCountersStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+  gap: "7px",
+  marginBottom: "12px",
+};
+
+const roleCounterCardStyle: CSSProperties = {
+  minWidth: 0,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "8px",
+  padding: "8px 9px",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderRadius: "7px",
+};
+
+const roleCounterLabelStyle: CSSProperties = {
+  minWidth: 0,
+  overflow: "hidden",
+  color: "#4d5d6c",
+  fontSize: "0.74rem",
   fontWeight: 700,
-  color: "#2980b9",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+const roleCounterValueStyle: CSSProperties = {
+  flexShrink: 0,
+  color: "#243746",
+  fontSize: "0.88rem",
 };
 
 const purchaseBudgetSummaryStyle: CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
-  gap: "16px",
+  justifyContent: "space-between",
+  gap: "10px 16px",
   padding: "9px 11px",
   marginBottom: "12px",
-  border: "1px solid #d6e4ef",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#d6e4ef",
   borderRadius: "7px",
   background: "#f4f9fd",
   color: "#2c3e50",
@@ -1081,65 +1237,141 @@ const purchaseBudgetSummaryStyle: CSSProperties = {
 };
 
 const priceCellStyle: CSSProperties = {
-  padding: "7px",
-  border: "1px solid #ddd",
+  padding: "8px",
+  borderWidth: "0 0 1px 1px",
+  borderStyle: "solid",
+  borderColor: "#dfe5ea",
+  background: "#fff",
   whiteSpace: "nowrap",
   textAlign: "right",
   fontWeight: 700,
 };
 
 const configurationStyle: CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: "10px",
-  padding: "12px",
+  padding: "11px",
   marginBottom: "14px",
-  background: "#f8f9fa",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#e0e6eb",
   borderRadius: "8px",
+  background: "#f8fafc",
+};
+
+const roleLimitsHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "baseline",
+  justifyContent: "space-between",
+  flexWrap: "wrap",
+  gap: "4px 10px",
+  marginBottom: "9px",
+  color: "#2c3e50",
+};
+
+const roleLimitsHelpStyle: CSSProperties = {
+  color: "#6b7b88",
+  fontSize: "0.76rem",
+};
+
+const roleLimitsGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+  gap: "8px",
+};
+
+const roleLimitFieldStyle: CSSProperties = {
+  minWidth: 0,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "6px",
+  padding: "6px 7px",
+  borderRadius: "6px",
+  background: "#fff",
 };
 
 const configurationLabelStyle: CSSProperties = {
-  display: "inline-block",
-  marginRight: "5px",
-  fontWeight: 700,
+  fontWeight: 800,
+  color: "#34495e",
 };
 
 const limitInputStyle: CSSProperties = {
   width: "52px",
-  padding: "6px",
-  border: "2px solid #b8c5cf",
+  minHeight: "34px",
+  padding: "5px",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#aebdca",
   borderRadius: "6px",
   background: "#fff",
+  color: "#243746",
   textAlign: "center",
+  outline: "none",
 };
 
 const tableWrapperStyle: CSSProperties = {
-  overflowX: "auto",
-  border: "1px solid #ddd",
+  maxHeight: "52vh",
+  overflow: "auto",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#d7dee5",
+  borderRadius: "8px",
+  background: "#fff",
 };
 
 const tableStyle: CSSProperties = {
   width: "100%",
-  borderCollapse: "collapse",
+  minWidth: "760px",
+  borderCollapse: "separate",
+  borderSpacing: 0,
+  background: "#fff",
 };
 
 const headerStyle: CSSProperties = {
-  padding: "8px",
-  border: "1px solid #ddd",
+  position: "sticky",
+  top: 0,
+  zIndex: 3,
+  padding: "9px 8px",
+  borderWidth: "0 0 1px 1px",
+  borderStyle: "solid",
+  borderColor: "#52697d",
   background: "#34495e",
   color: "#fff",
   textAlign: "left",
   whiteSpace: "nowrap",
+  boxShadow: "0 2px 5px rgba(0,0,0,0.10)",
+};
+
+const actionsHeaderStyle: CSSProperties = {
+  left: 0,
+  zIndex: 5,
+  minWidth: "76px",
+  textAlign: "center",
 };
 
 const cellStyle: CSSProperties = {
-  padding: "7px",
-  border: "1px solid #ddd",
+  padding: "8px",
+  borderWidth: "0 0 1px 1px",
+  borderStyle: "solid",
+  borderColor: "#dfe5ea",
+  background: "#fff",
   whiteSpace: "nowrap",
 };
 
+const actionsCellStyle: CSSProperties = {
+  ...cellStyle,
+  position: "sticky",
+  left: 0,
+  zIndex: 2,
+  width: "76px",
+  minWidth: "76px",
+  padding: "5px",
+  background: "#fff",
+  boxShadow: "2px 0 4px rgba(44, 62, 80, 0.06)",
+};
+
 const emptyCellStyle: CSSProperties = {
-  padding: "24px",
+  padding: "28px",
+  color: "#6b7b88",
   textAlign: "center",
 };
 
@@ -1152,12 +1384,17 @@ const rowActionsStyle: CSSProperties = {
 
 const returnToListButtonStyle: CSSProperties = {
   width: "30px",
-  height: "28px",
+  height: "29px",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
   padding: 0,
-  border: 0,
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#7fb9df",
   borderRadius: "5px",
-  background: "#3498db",
-  color: "#fff",
+  background: "#eaf5fc",
+  color: "#2471a3",
   fontSize: "1rem",
   fontWeight: 800,
   lineHeight: 1,
@@ -1166,7 +1403,10 @@ const returnToListButtonStyle: CSSProperties = {
 
 const moveToBinButtonStyle: CSSProperties = {
   width: "30px",
-  height: "28px",
+  height: "29px",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
   padding: 0,
   borderWidth: "1px",
   borderStyle: "solid",
@@ -1187,8 +1427,8 @@ const statBarsContainerStyle: CSSProperties = {
 
 const statBarStyle: CSSProperties = {
   display: "inline-block",
-  width: "8px",
-  height: "16px",
+  width: "7px",
+  height: "15px",
   borderRadius: "2px",
 };
 
@@ -1196,25 +1436,62 @@ const alertsSectionStyle: CSSProperties = {
   marginTop: "18px",
 };
 
+const sectionTitleRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+  marginBottom: "9px",
+};
+
+const sectionTitleStyle: CSSProperties = {
+  margin: 0,
+  color: "#2c3e50",
+  fontSize: "1rem",
+};
+
+const sectionCountBadgeStyle: CSSProperties = {
+  minWidth: "22px",
+  height: "22px",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "0 6px",
+  borderRadius: "999px",
+  background: "#eef2f5",
+  color: "#4d5d6c",
+  fontSize: "0.72rem",
+  fontWeight: 800,
+};
+
 const alertStyle: CSSProperties = {
   position: "relative",
   display: "flex",
+  alignItems: "flex-start",
   justifyContent: "space-between",
   gap: "8px",
   padding: "9px 10px",
   marginBottom: "6px",
-  borderLeft: "4px solid",
-  borderRadius: "4px",
-  fontSize: "0.88rem",
+  borderWidth: "1px 1px 1px 4px",
+  borderStyle: "solid",
+  borderColor: "transparent",
+  borderRadius: "6px",
+  fontSize: "0.86rem",
+  lineHeight: 1.35,
 };
 
 const dismissButtonStyle: CSSProperties = {
   flexShrink: 0,
+  width: "22px",
+  height: "22px",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
   padding: 0,
   border: 0,
-  background: "transparent",
-  color: "#777",
-  fontSize: "1.3rem",
+  borderRadius: "4px",
+  background: "rgba(255,255,255,0.55)",
+  color: "#66737f",
+  fontSize: "1.15rem",
   lineHeight: 1,
   cursor: "pointer",
 };
@@ -1226,23 +1503,28 @@ const statisticsSectionStyle: CSSProperties = {
 const statisticsGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns:
-    "repeat(auto-fit, minmax(190px, 1fr))",
-  gap: "10px",
+    "repeat(auto-fit, minmax(185px, 1fr))",
+  gap: "9px",
 };
 
 const statisticsBlockStyle: CSSProperties = {
-  padding: "10px",
-  border: "1px solid #ddd",
+  padding: "10px 11px",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#dfe5ea",
   borderRadius: "8px",
   background: "#fff",
+  boxShadow: "0 2px 6px rgba(44, 62, 80, 0.05)",
 };
 
 const statisticsSummaryStyle: CSSProperties = {
-  fontWeight: 700,
+  color: "#2c3e50",
+  fontWeight: 800,
   cursor: "pointer",
 };
 
 const statisticLineStyle: CSSProperties = {
   margin: "5px 0",
-  fontSize: "0.88rem",
+  color: "#4d5d6c",
+  fontSize: "0.86rem",
 };

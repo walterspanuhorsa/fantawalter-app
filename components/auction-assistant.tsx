@@ -3,6 +3,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
@@ -118,6 +119,18 @@ function getTextValue(
   }
 
   return String(value);
+}
+
+function normalizeSearchText(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  return String(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("it")
+    .trim();
 }
 
 function isEmptyValue(value: unknown): boolean {
@@ -297,6 +310,8 @@ export default function AuctionAssistant({
   strategyColumns,
   lastUpdate,
 }: AuctionAssistantProps) {
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
   const [roleFilter, setRoleFilter] = useState("");
   const [teamFilter, setTeamFilter] = useState("");
   const [nameSearch, setNameSearch] = useState("");
@@ -765,9 +780,7 @@ export default function AuctionAssistant({
   );
 
   const displayedPlayers = useMemo(() => {
-    const normalizedSearch = nameSearch
-      .trim()
-      .toLocaleLowerCase("it");
+    const normalizedSearch = normalizeSearchText(nameSearch);
 
     const filteredPlayers = initialPlayers.filter((player) => {
       const playerKey = getPlayerKey(player);
@@ -781,15 +794,16 @@ export default function AuctionAssistant({
 
       const ruolo = getTextValue(player, "ruolo");
       const team = getTextValue(player, "team");
-      const nome = getTextValue(
-        player,
-        "nome",
-      ).toLocaleLowerCase("it");
+      const nome = getTextValue(player, "nome");
+      const searchableText = normalizeSearchText(
+        `${nome} ${team} ${ruolo}`,
+      );
 
       return (
         (!roleFilter || ruolo === roleFilter) &&
         (!teamFilter || team === teamFilter) &&
-        (!normalizedSearch || nome.includes(normalizedSearch))
+        (!normalizedSearch ||
+          searchableText.includes(normalizedSearch))
       );
     });
 
@@ -1106,6 +1120,12 @@ export default function AuctionAssistant({
         [playerKey]: purchasePrice,
       }));
     }
+
+    setNameSearch("");
+
+    window.requestAnimationFrame(() => {
+      searchInputRef.current?.focus();
+    });
   }
 
   function removePurchasedPlayer(player: PlayerRow): void {
@@ -1251,28 +1271,85 @@ export default function AuctionAssistant({
   return (
     <main className="fantawalter-page" style={pageStyle}>
       <style>{`
+        .fantawalter-player-row:nth-child(even) td {
+          background-color: #fbfcfd;
+        }
+
+        .fantawalter-player-row:hover td {
+          background-color: #f3f8fc;
+        }
+
+        .fantawalter-player-row:hover .fantawalter-actions-cell {
+          background-color: #eaf7ef !important;
+        }
+
+        .fantawalter-search-input::-webkit-search-cancel-button {
+          cursor: pointer;
+        }
+
         @media (max-width: 1100px) {
           .fantawalter-layout {
             grid-template-columns: minmax(0, 1fr) !important;
           }
 
           .fantawalter-squad-panel {
+            position: static !important;
             max-height: none !important;
+          }
+        }
+
+        @media (max-width: 760px) {
+          .fantawalter-filter-field {
+            flex: 1 1 calc(50% - 8px) !important;
+            min-width: 0 !important;
+          }
+
+          .fantawalter-search-field {
+            flex-basis: 100% !important;
+          }
+
+          .fantawalter-filter-field select,
+          .fantawalter-filter-field input {
+            width: 100% !important;
+            min-width: 0 !important;
+          }
+
+          .fantawalter-summary {
+            gap: 8px !important;
           }
         }
 
         @media (max-width: 640px) {
           .fantawalter-page {
-            padding: 10px !important;
+            padding: 8px !important;
           }
 
           .fantawalter-main-panel,
           .fantawalter-squad-panel {
-            padding: 12px !important;
+            padding: 10px !important;
+            border-radius: 8px !important;
           }
 
           .fantawalter-configuration-header {
             align-items: stretch !important;
+            flex-direction: column !important;
+          }
+
+          .fantawalter-support-buttons {
+            width: 100% !important;
+            margin-left: 0 !important;
+            justify-content: flex-start !important;
+          }
+
+          .fantawalter-filter-field {
+            flex-basis: 100% !important;
+          }
+
+          .fantawalter-filter-bin {
+            width: 100% !important;
+          }
+
+          .fantawalter-summary {
             flex-direction: column !important;
           }
         }
@@ -1302,7 +1379,10 @@ export default function AuctionAssistant({
                 <span>⚙️ Configurazione</span>
               </button>
 
-              <div style={supportButtonsStyle}>
+              <div
+                className="fantawalter-support-buttons"
+                style={supportButtonsStyle}
+              >
                 <PayPalSupportButton />
               </div>
             </div>
@@ -1565,7 +1645,7 @@ export default function AuctionAssistant({
           </details>
 
           <div style={filtersStyle}>
-            <label>
+            <label className="fantawalter-filter-field">
               <span style={labelStyle}>Ruolo</span>
 
               <select
@@ -1585,7 +1665,7 @@ export default function AuctionAssistant({
               </select>
             </label>
 
-            <label>
+            <label className="fantawalter-filter-field">
               <span style={labelStyle}>Squadra</span>
 
               <select
@@ -1605,19 +1685,30 @@ export default function AuctionAssistant({
               </select>
             </label>
 
-            <label>
-              <span style={labelStyle}>Nome</span>
+            <label className="fantawalter-filter-field fantawalter-search-field">
+              <span style={labelStyle}>Cerca</span>
 
               <input
+                ref={searchInputRef}
+                className="fantawalter-search-input"
                 type="search"
                 list="fantawalter-player-names"
                 value={nameSearch}
-                placeholder="Digita o scegli un giocatore..."
+                placeholder="Nome, squadra o ruolo..."
                 autoComplete="off"
                 onChange={(event) =>
                   setNameSearch(event.target.value)
                 }
-                style={{ ...controlStyle, minWidth: "260px" }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    setNameSearch("");
+                  }
+                }}
+                style={{
+                  ...controlStyle,
+                  width: "100%",
+                  minWidth: "280px",
+                }}
               />
 
               <datalist id="fantawalter-player-names">
@@ -1628,6 +1719,7 @@ export default function AuctionAssistant({
             </label>
 
             <button
+              className="fantawalter-filter-bin"
               type="button"
               onClick={() => {
                 setHoveredPlayer(null);
@@ -1645,7 +1737,7 @@ export default function AuctionAssistant({
             </button>
           </div>
 
-          <div style={summaryStyle}>
+          <div className="fantawalter-summary" style={summaryStyle}>
             <span>
               Giocatori nella lista {" "}
               <strong>{availablePlayersCount}</strong>
@@ -1658,7 +1750,7 @@ export default function AuctionAssistant({
           </div>
 
           <div style={tableWrapperStyle}>
-            <table style={tableStyle}>
+            <table className="fantawalter-table" style={tableStyle}>
               <thead>
                 <tr>
                   <th
@@ -1712,8 +1804,14 @@ export default function AuctionAssistant({
                   const rowKey = getPlayerKey(player);
 
                   return (
-                    <tr key={rowKey}>
-                      <td style={actionCellStyle}>
+                    <tr
+                      key={rowKey}
+                      className="fantawalter-player-row"
+                    >
+                      <td
+                        className="fantawalter-actions-cell"
+                        style={actionCellStyle}
+                      >
                         <div style={actionButtonsStyle}>
                           <button
                             type="button"
@@ -1914,10 +2012,11 @@ export default function AuctionAssistant({
 
 const pageStyle: CSSProperties = {
   minHeight: "100vh",
-  padding: "24px",
-  background: "#f0f2f5",
-  color: "#222",
-  fontFamily: "Arial, sans-serif",
+  padding: "20px",
+  background: "#eef2f6",
+  color: "#1f2933",
+  fontFamily:
+    "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
 };
 
 const layoutStyle: CSSProperties = {
@@ -1932,28 +2031,38 @@ const layoutStyle: CSSProperties = {
 
 const containerStyle: CSSProperties = {
   minWidth: 0,
-  padding: "20px",
+  padding: "18px",
   background: "#fff",
-  borderRadius: "10px",
-  boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#e2e8f0",
+  borderRadius: "12px",
+  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.06)",
 };
 
 const rightPanelStyle: CSSProperties = {
+  position: "sticky",
+  top: "20px",
   minWidth: 0,
-  maxHeight: "calc(100vh - 48px)",
+  maxHeight: "calc(100vh - 40px)",
   overflowY: "auto",
-  padding: "20px",
+  padding: "18px",
   background: "#fff",
-  borderRadius: "10px",
-  boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#e2e8f0",
+  borderRadius: "12px",
+  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.06)",
 };
 
 const configurationPanelStyle: CSSProperties = {
-  marginBottom: "14px",
-  padding: "0 14px",
-  border: "1px solid #d7dee5",
+  marginBottom: "12px",
+  padding: "0 12px",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#dbe3ea",
   borderRadius: "8px",
-  background: "#f8fafc",
+  background: "#fbfcfe",
 };
 
 const configurationSummaryStyle: CSSProperties = {
@@ -1965,7 +2074,7 @@ const configurationSummaryStyle: CSSProperties = {
 };
 
 const configurationHeaderRowStyle: CSSProperties = {
-  minHeight: "48px",
+  minHeight: "44px",
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
@@ -1989,12 +2098,14 @@ const configurationToggleButtonStyle: CSSProperties = {
 
 const supportButtonsStyle: CSSProperties = {
   minWidth: 0,
-  minHeight: "36px",
+  maxWidth: "100%",
+  minHeight: "34px",
   marginLeft: "auto",
   display: "flex",
   alignItems: "center",
   justifyContent: "flex-end",
-  flexShrink: 0,
+  flexWrap: "wrap",
+  gap: "8px",
 };
 
 const sectionArrowStyle: CSSProperties = {
@@ -2180,12 +2291,14 @@ const binBadgeStyle: CSSProperties = {
 const filtersStyle: CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
-  gap: "14px",
+  gap: "12px",
   alignItems: "end",
-  padding: "14px",
-  marginBottom: "14px",
-  background: "#f8f9fa",
-  border: "1px solid #ddd",
+  padding: "12px",
+  marginBottom: "12px",
+  background: "#f8fafc",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#dbe3ea",
   borderRadius: "8px",
 };
 
@@ -2329,15 +2442,27 @@ const smallButtonStyle: CSSProperties = {
 const summaryStyle: CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
-  gap: "20px",
+  gap: "10px",
   marginBottom: "12px",
-  fontSize: "0.95rem",
+  padding: "9px 11px",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#dbe7f0",
+  borderRadius: "8px",
+  background: "#f6f9fc",
+  color: "#425466",
+  fontSize: "0.9rem",
 };
 
 const tableWrapperStyle: CSSProperties = {
   maxHeight: "68vh",
   overflow: "auto",
-  border: "1px solid #ddd",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#d7dee5",
+  borderRadius: "8px",
+  background: "#fff",
+  boxShadow: "inset 0 1px 2px rgba(15, 23, 42, 0.03)",
 };
 
 const tableStyle: CSSProperties = {
@@ -2351,8 +2476,10 @@ const headerCellStyle: CSSProperties = {
   top: 0,
   zIndex: 2,
   padding: "10px",
-  border: "1px solid #ddd",
-  background: "#34495e",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#445b70",
+  background: "#31465a",
   color: "#fff",
   textAlign: "left",
   whiteSpace: "nowrap",
@@ -2361,7 +2488,9 @@ const headerCellStyle: CSSProperties = {
 
 const cellStyle: CSSProperties = {
   padding: "8px 10px",
-  border: "1px solid #ddd",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#e1e6eb",
   whiteSpace: "nowrap",
 };
 
@@ -2386,6 +2515,7 @@ const actionCellStyle: CSSProperties = {
   minWidth: "68px",
   padding: "4px",
   background: "#fff",
+  boxShadow: "2px 0 4px rgba(15, 23, 42, 0.05)",
 };
 
 const actionButtonsStyle: CSSProperties = {
