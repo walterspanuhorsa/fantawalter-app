@@ -305,6 +305,64 @@ function readBoolean(value: unknown): boolean | null {
   return typeof value === "boolean" ? value : null;
 }
 
+function normalizeReferenceColumnOrder(
+  columnKeys: string[],
+): string[] {
+  const playerIndex = columnKeys.indexOf("giocatore");
+  const mediaIndex = columnKeys.indexOf("media_strategie");
+  const pmaIndex = columnKeys.indexOf("pma");
+
+  const legacyIndicators = new Set([
+    "titolarita",
+    "affidabilita",
+    "integrita",
+  ]);
+
+  const hasLegacyOrder =
+    playerIndex >= 0 &&
+    mediaIndex > playerIndex &&
+    pmaIndex > mediaIndex &&
+    columnKeys
+      .slice(playerIndex + 1, mediaIndex)
+      .some((key) => legacyIndicators.has(key));
+
+  if (!hasLegacyOrder) {
+    return columnKeys;
+  }
+
+  const withoutReferenceColumns = columnKeys.filter(
+    (key) =>
+      key !== "media_strategie" &&
+      key !== "pma",
+  );
+
+  const nextPlayerIndex =
+    withoutReferenceColumns.indexOf("giocatore");
+
+  withoutReferenceColumns.splice(
+    nextPlayerIndex + 1,
+    0,
+    "media_strategie",
+    "pma",
+  );
+
+  return withoutReferenceColumns;
+}
+
+function getReferenceColumnClassName(
+  columnKey: string,
+): string | undefined {
+  if (columnKey === "media_strategie") {
+    return "fantawalter-reference-column fantawalter-media-column";
+  }
+
+  if (columnKey === "pma") {
+    return "fantawalter-reference-column fantawalter-pma-column";
+  }
+
+  return undefined;
+}
+
 function readStoredColumnKeys(
   value: unknown,
   allowedColumnKeySet: Set<string>,
@@ -321,13 +379,15 @@ function readStoredColumnKeys(
         : item,
     );
 
-  return Array.from(
+  const validColumnKeys = Array.from(
     new Set(
       migratedKeys.filter((item) =>
         allowedColumnKeySet.has(item),
       ),
     ),
   );
+
+  return normalizeReferenceColumnOrder(validColumnKeys);
 }
 
 function readPurchasePrices(
@@ -1426,6 +1486,9 @@ export default function AuctionAssistant({
                     return (
                       <th
                         key={column.key}
+                        className={getReferenceColumnClassName(
+                          column.key,
+                        )}
                         draggable
                         onDragStart={(event) => {
                           setDraggedColumnKey(column.key);
@@ -1523,6 +1586,9 @@ export default function AuctionAssistant({
                         return (
                           <td
                             key={column.key}
+                            className={getReferenceColumnClassName(
+                              column.key,
+                            )}
                             onMouseEnter={
                               isPlayerColumn
                                 ? (event) =>

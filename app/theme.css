@@ -54,6 +54,16 @@ html[data-theme="light"] {
   --fw-table-row: #ffffff;
   --fw-table-row-alt: #f7f9fb;
   --fw-table-row-hover: #edf5fb;
+
+  --fw-media-bg: #edf4f5;
+  --fw-media-bg-hover: #e4eef0;
+  --fw-media-head-bg: #405766;
+
+  --fw-pma-bg: #f2f0f6;
+  --fw-pma-bg-hover: #e9e6f0;
+  --fw-pma-head-bg: #4b4d63;
+
+  --fw-reference-border: #8da2b0;
 }
 
 html[data-theme="dark"] {
@@ -111,6 +121,16 @@ html[data-theme="dark"] {
   --fw-table-row: #111820;
   --fw-table-row-alt: #16212b;
   --fw-table-row-hover: #1b2d3a;
+
+  --fw-media-bg: #17262c;
+  --fw-media-bg-hover: #1d3037;
+  --fw-media-head-bg: #29424b;
+
+  --fw-pma-bg: #211f2c;
+  --fw-pma-bg-hover: #2a2738;
+  --fw-pma-head-bg: #3b3850;
+
+  --fw-reference-border: #607686;
 }
 
 html,
@@ -131,3 +151,46 @@ button,
 a {
   color-scheme: inherit;
 }
+
+/*
+ * Media e PMA costituiscono il blocco dei principali
+ * riferimenti d'asta. I colori hanno intensità equivalenti.
+ */
+.fantawalter-table thead .fantawalter-media-column {
+  background-color: var(--fw-media-head-bg) !important;
+  border-left: 2px solid var(--fw-reference-border) !important;
+}
+
+.fantawalter-table thead .fantawalter-pma-column {
+  background-color: var(--fw-pma-head-bg) !important;
+  border-right: 2px solid var(--fw-reference-border) !important;
+}
+
+.fantawalter-table tbody .fantawalter-media-column {
+  background-color: var(--fw-media-bg) !important;
+  border-left: 2px solid var(--fw-reference-border) !important;
+  color: var(--fw-text) !important;
+  font-weight: 800;
+  text-align: center;
+}
+
+.fantawalter-table tbody .fantawalter-pma-column {
+  background-color: var(--fw-pma-bg) !important;
+  border-right: 2px solid var(--fw-reference-border) !important;
+  color: var(--fw-text) !important;
+  font-weight: 800;
+  text-align: center;
+}
+
+.fantawalter-table
+  .fantawalter-player-row:hover
+  .fantawalter-media-column {
+  background-color: var(--fw-media-bg-hover) !important;
+}
+
+.fantawalter-table
+  .fantawalter-player-row:hover
+  .fantawalter-pma-column {
+  background-color: var(--fw-pma-bg-hover) !important;
+}
+

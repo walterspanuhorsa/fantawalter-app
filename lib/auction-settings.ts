@@ -40,11 +40,11 @@ export const AUCTION_STORAGE_KEY =
 
 export const BASE_COLUMNS: ColumnDefinition[] = [
   { key: "giocatore", label: "Giocatore" },
+  { key: "media_strategie", label: "Media" },
+  { key: "pma", label: "PMA" },
   { key: "titolarita", label: "TIT" },
   { key: "affidabilita", label: "AFF" },
   { key: "integrita", label: "INT" },
-  { key: "media_strategie", label: "Media" },
-  { key: "pma", label: "PMA" },
   { key: "note", label: "NOTE" },
   { key: "percezione", label: "Percezione" },
 ];
@@ -137,6 +137,50 @@ function resolveRoleBudgets(value: unknown): RoleBudgets {
   );
 }
 
+function normalizeReferenceColumnOrder(
+  columnKeys: string[],
+): string[] {
+  const playerIndex = columnKeys.indexOf("giocatore");
+  const mediaIndex = columnKeys.indexOf("media_strategie");
+  const pmaIndex = columnKeys.indexOf("pma");
+
+  const legacyIndicators = new Set([
+    "titolarita",
+    "affidabilita",
+    "integrita",
+  ]);
+
+  const hasLegacyOrder =
+    playerIndex >= 0 &&
+    mediaIndex > playerIndex &&
+    pmaIndex > mediaIndex &&
+    columnKeys
+      .slice(playerIndex + 1, mediaIndex)
+      .some((key) => legacyIndicators.has(key));
+
+  if (!hasLegacyOrder) {
+    return columnKeys;
+  }
+
+  const withoutReferenceColumns = columnKeys.filter(
+    (key) =>
+      key !== "media_strategie" &&
+      key !== "pma",
+  );
+
+  const nextPlayerIndex =
+    withoutReferenceColumns.indexOf("giocatore");
+
+  withoutReferenceColumns.splice(
+    nextPlayerIndex + 1,
+    0,
+    "media_strategie",
+    "pma",
+  );
+
+  return withoutReferenceColumns;
+}
+
 function readColumnKeys(
   value: unknown,
   allowedColumnKeySet: Set<string>,
@@ -157,13 +201,15 @@ function readColumnKeys(
         : item,
     );
 
-  return Array.from(
+  const validColumnKeys = Array.from(
     new Set(
       migratedKeys.filter((item) =>
         allowedColumnKeySet.has(item),
       ),
     ),
   );
+
+  return normalizeReferenceColumnOrder(validColumnKeys);
 }
 
 export function createDefaultAuctionSettings(): AuctionSettings {
