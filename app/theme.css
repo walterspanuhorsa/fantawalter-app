@@ -1,0 +1,133 @@
+:root,
+html[data-theme="light"] {
+  color-scheme: light;
+
+  --fw-page-bg: #eef2f6;
+  --fw-panel-bg: #ffffff;
+  --fw-panel-soft: #f8fafc;
+  --fw-panel-muted: #f2f5f7;
+  --fw-input-bg: #ffffff;
+
+  --fw-text: #1f2933;
+  --fw-heading: #243746;
+  --fw-text-secondary: #52616d;
+  --fw-text-muted: #71808d;
+
+  --fw-border: #dbe3ea;
+  --fw-border-soft: #e1e6eb;
+  --fw-border-strong: #aebdca;
+
+  --fw-table-head: #31465a;
+  --fw-table-head-border: #445b70;
+  --fw-table-head-text: #ffffff;
+
+  --fw-accent: #2f80c5;
+  --fw-accent-soft: #e9f3ff;
+  --fw-accent-border: #4f8fca;
+  --fw-accent-text: #174c78;
+
+  --fw-info-soft: #eef6fb;
+  --fw-info-text: #34495e;
+  --fw-control-muted-bg: #f2f4f6;
+  --fw-control-muted-text: #68737d;
+
+  --fw-success-soft: #edf9f1;
+  --fw-success-text: #216a3a;
+  --fw-success-border: #72b28b;
+
+  --fw-danger-soft: #ffebee;
+  --fw-danger-text: #b03a2e;
+  --fw-danger-border: #e8a2aa;
+
+  --fw-warning-soft: #fff8ed;
+  --fw-warning-border: #f0c27b;
+
+  --fw-role-p-soft: #fff3e0;
+  --fw-role-d-soft: #e8f5e9;
+  --fw-role-c-soft: #e1f5fe;
+  --fw-role-a-soft: #ffebee;
+
+  --fw-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  --fw-shadow-soft: 0 4px 16px rgba(35, 55, 70, 0.06);
+  --fw-row-stripe: rgba(44, 62, 80, 0.025);
+  --fw-row-hover: rgba(41, 128, 185, 0.085);
+  --fw-table-row: #ffffff;
+  --fw-table-row-alt: #f7f9fb;
+  --fw-table-row-hover: #edf5fb;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+
+  --fw-page-bg: #080c11;
+  --fw-panel-bg: #111820;
+  --fw-panel-soft: #151e28;
+  --fw-panel-muted: #18222d;
+  --fw-input-bg: #0d141c;
+
+  --fw-text: #dbe5ee;
+  --fw-heading: #f5f7fa;
+  --fw-text-secondary: #b6c2cd;
+  --fw-text-muted: #91a0ad;
+
+  --fw-border: #2c3a47;
+  --fw-border-soft: #23303c;
+  --fw-border-strong: #506275;
+
+  --fw-table-head: #1c2935;
+  --fw-table-head-border: #3d5163;
+  --fw-table-head-text: #f8fafc;
+
+  --fw-accent: #4da3df;
+  --fw-accent-soft: #122b3e;
+  --fw-accent-border: #3e82b2;
+  --fw-accent-text: #9ed2f4;
+
+  --fw-info-soft: #142635;
+  --fw-info-text: #c7d9e7;
+  --fw-control-muted-bg: #202a34;
+  --fw-control-muted-text: #a8b4bf;
+
+  --fw-success-soft: #14281d;
+  --fw-success-text: #8bd3a4;
+  --fw-success-border: #3d7951;
+
+  --fw-danger-soft: #351a1d;
+  --fw-danger-text: #ff9b9b;
+  --fw-danger-border: #7e3f46;
+
+  --fw-warning-soft: #332718;
+  --fw-warning-border: #765b2e;
+
+  --fw-role-p-soft: #332713;
+  --fw-role-d-soft: #152a1d;
+  --fw-role-c-soft: #122936;
+  --fw-role-a-soft: #351a1d;
+
+  --fw-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  --fw-shadow-soft: 0 6px 18px rgba(0, 0, 0, 0.22);
+  --fw-row-stripe: rgba(255, 255, 255, 0.025);
+  --fw-row-hover: rgba(77, 163, 223, 0.12);
+  --fw-table-row: #111820;
+  --fw-table-row-alt: #16212b;
+  --fw-table-row-hover: #1b2d3a;
+}
+
+html,
+body {
+  background: var(--fw-page-bg);
+  color: var(--fw-text);
+}
+
+body {
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease;
+}
+
+input,
+select,
+button,
+a {
+  color-scheme: inherit;
+}

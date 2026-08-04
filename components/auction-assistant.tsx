@@ -161,25 +161,25 @@ function getRoleCellStyle(role: string): CSSProperties {
   switch (role) {
     case "P":
       return {
-        background: "#fff3e0",
+        background: "var(--fw-role-p-soft)",
         fontWeight: 700,
       };
 
     case "D":
       return {
-        background: "#e8f5e9",
+        background: "var(--fw-role-d-soft)",
         fontWeight: 700,
       };
 
     case "C":
       return {
-        background: "#e1f5fe",
+        background: "var(--fw-role-c-soft)",
         fontWeight: 700,
       };
 
     case "A":
       return {
-        background: "#ffebee",
+        background: "var(--fw-role-a-soft)",
         fontWeight: 700,
       };
 
@@ -208,14 +208,16 @@ function getRoleFilterButtonStyle(
   if (!active) {
     return {
       background: "transparent",
-      borderColor: "#aebdca",
-      color: "#52616d",
+      borderColor: "var(--fw-border-strong)",
+      color: "var(--fw-text-secondary)",
       boxShadow: "none",
     };
   }
 
   return {
-    background: role ? getRoleColor(role) : "#34495e",
+    background: role
+      ? getRoleColor(role)
+      : "var(--fw-accent)",
     borderColor: role ? "#ffffff" : "#34495e",
     color: "#ffffff",
     boxShadow: role
@@ -1116,16 +1118,31 @@ export default function AuctionAssistant({
   return (
     <main className="fantawalter-page" style={pageStyle}>
       <style>{`
+        .fantawalter-player-row td {
+          background-color: var(--fw-table-row);
+          color: var(--fw-text);
+        }
+
         .fantawalter-player-row:nth-child(even) td {
-          background-color: #fbfcfd;
+          background-color: var(--fw-table-row-alt);
+        }
+
+        .fantawalter-player-row .fantawalter-actions-cell {
+          background-color: var(--fw-table-row) !important;
+        }
+
+        .fantawalter-player-row:nth-child(even)
+          .fantawalter-actions-cell {
+          background-color: var(--fw-table-row-alt) !important;
         }
 
         .fantawalter-player-row:hover td {
-          background-color: #f3f8fc;
+          background-color: var(--fw-table-row-hover);
         }
 
-        .fantawalter-player-row:hover .fantawalter-actions-cell {
-          background-color: #eaf7ef !important;
+        .fantawalter-player-row:hover
+          .fantawalter-actions-cell {
+          background-color: var(--fw-table-row-hover) !important;
         }
 
         .fantawalter-search-input::-webkit-search-cancel-button {
@@ -1701,8 +1718,8 @@ export default function AuctionAssistant({
 const pageStyle: CSSProperties = {
   minHeight: "100vh",
   padding: "20px",
-  background: "#eef2f6",
-  color: "#1f2933",
+  background: "var(--fw-page-bg)",
+  color: "var(--fw-text)",
   fontFamily:
     "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
 };
@@ -1720,12 +1737,12 @@ const layoutStyle: CSSProperties = {
 const containerStyle: CSSProperties = {
   minWidth: 0,
   padding: "18px",
-  background: "#fff",
+  background: "var(--fw-panel-bg)",
   borderWidth: "1px",
   borderStyle: "solid",
-  borderColor: "#e2e8f0",
+  borderColor: "var(--fw-border)",
   borderRadius: "12px",
-  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.06)",
+  boxShadow: "var(--fw-shadow)",
 };
 
 const rightPanelStyle: CSSProperties = {
@@ -1735,12 +1752,12 @@ const rightPanelStyle: CSSProperties = {
   maxHeight: "calc(100vh - 40px)",
   overflowY: "auto",
   padding: "18px",
-  background: "#fff",
+  background: "var(--fw-panel-bg)",
   borderWidth: "1px",
   borderStyle: "solid",
-  borderColor: "#e2e8f0",
+  borderColor: "var(--fw-border)",
   borderRadius: "12px",
-  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.06)",
+  boxShadow: "var(--fw-shadow)",
 };
 
 const serviceBarStyle: CSSProperties = {
@@ -1753,10 +1770,10 @@ const serviceBarStyle: CSSProperties = {
   gap: "12px",
   borderWidth: "1px",
   borderStyle: "solid",
-  borderColor: "#d7e0e7",
+  borderColor: "var(--fw-border)",
   borderRadius: "10px",
-  background: "#ffffff",
-  boxShadow: "0 4px 14px rgba(15, 23, 42, 0.05)",
+  background: "var(--fw-panel-bg)",
+  boxShadow: "var(--fw-shadow-soft)",
 };
 
 const serviceInfoStyle: CSSProperties = {
@@ -1767,12 +1784,12 @@ const serviceInfoStyle: CSSProperties = {
   justifyContent: "center",
   flexWrap: "wrap",
   gap: "8px",
-  color: "#52616d",
+  color: "var(--fw-text-secondary)",
   fontSize: "0.88rem",
 };
 
 const serviceDividerStyle: CSSProperties = {
-  color: "#a0acb7",
+  color: "var(--fw-text-muted)",
 };
 
 const settingsLinkStyle: CSSProperties = {
@@ -1783,10 +1800,10 @@ const settingsLinkStyle: CSSProperties = {
   padding: "0 11px",
   borderWidth: "1px",
   borderStyle: "solid",
-  borderColor: "#b9c8d4",
+  borderColor: "var(--fw-border-strong)",
   borderRadius: "7px",
-  background: "#ffffff",
-  color: "#2c3e50",
+  background: "var(--fw-panel-bg)",
+  color: "var(--fw-heading)",
   fontWeight: 800,
   textDecoration: "none",
   boxShadow: "0 1px 2px rgba(15, 23, 42, 0.05)",
@@ -1847,7 +1864,7 @@ const filterBinButtonStyle: CSSProperties = {
   border: 0,
   borderRadius: "7px",
   background: "#7f8c8d",
-  color: "#fff",
+  color: "var(--fw-table-head-text)",
   fontWeight: 700,
   cursor: "pointer",
 };
@@ -1876,10 +1893,10 @@ const filtersStyle: CSSProperties = {
   alignItems: "end",
   padding: "10px",
   marginBottom: "10px",
-  background: "#f8fafc",
+  background: "var(--fw-panel-soft)",
   borderWidth: "1px",
   borderStyle: "solid",
-  borderColor: "#dbe3ea",
+  borderColor: "var(--fw-border)",
   borderRadius: "8px",
 };
 
@@ -1892,10 +1909,10 @@ const labelStyle: CSSProperties = {
 const controlStyle: CSSProperties = {
   minHeight: "36px",
   padding: "6px 9px",
-  border: "2px solid #aebdca",
+  border: "2px solid var(--fw-border-strong)",
   borderRadius: "7px",
-  background: "#ffffff",
-  color: "#1f2933",
+  background: "var(--fw-panel-bg)",
+  color: "var(--fw-text)",
   boxShadow: "inset 0 1px 2px rgba(0,0,0,0.06)",
   outline: "none",
   fontSize: "0.95rem",
@@ -1906,16 +1923,16 @@ const tableWrapperStyle: CSSProperties = {
   overflow: "auto",
   borderWidth: "1px",
   borderStyle: "solid",
-  borderColor: "#d7dee5",
+  borderColor: "var(--fw-border)",
   borderRadius: "8px",
-  background: "#fff",
+  background: "var(--fw-panel-bg)",
   boxShadow: "inset 0 1px 2px rgba(15, 23, 42, 0.03)",
 };
 
 const tableStyle: CSSProperties = {
   width: "100%",
   borderCollapse: "collapse",
-  background: "#fff",
+  background: "var(--fw-panel-bg)",
 };
 
 const headerCellStyle: CSSProperties = {
@@ -1925,8 +1942,8 @@ const headerCellStyle: CSSProperties = {
   padding: "6px 7px",
   borderWidth: "1px",
   borderStyle: "solid",
-  borderColor: "#445b70",
-  background: "#31465a",
+  borderColor: "var(--fw-table-head-border)",
+  background: "var(--fw-table-head)",
   color: "#fff",
   textAlign: "left",
   whiteSpace: "nowrap",
@@ -1937,7 +1954,7 @@ const headerCellStyle: CSSProperties = {
 const columnDragHandleStyle: CSSProperties = {
   display: "inline-block",
   marginRight: "5px",
-  color: "#b8c7d3",
+  color: "var(--fw-text-muted)",
   fontSize: "0.78rem",
   letterSpacing: "-2px",
 };
@@ -1946,7 +1963,7 @@ const cellStyle: CSSProperties = {
   padding: "3px 6px",
   borderWidth: "1px",
   borderStyle: "solid",
-  borderColor: "#e1e6eb",
+  borderColor: "var(--fw-border-soft)",
   whiteSpace: "nowrap",
 };
 
@@ -1984,14 +2001,14 @@ const playerTextStyle: CSSProperties = {
 };
 
 const playerTeamStyle: CSSProperties = {
-  color: "#71808d",
+  color: "var(--fw-text-muted)",
   fontSize: "0.62rem",
   fontWeight: 700,
   letterSpacing: "0.03em",
 };
 
 const playerNameStyle: CSSProperties = {
-  color: "#243746",
+  color: "var(--fw-heading)",
   fontSize: "0.78rem",
 };
 
@@ -2011,7 +2028,7 @@ const actionCellStyle: CSSProperties = {
   width: "60px",
   minWidth: "60px",
   padding: "2px",
-  background: "#fff",
+  background: "var(--fw-panel-bg)",
   boxShadow: "2px 0 4px rgba(15, 23, 42, 0.05)",
 };
 
@@ -2044,9 +2061,9 @@ const deleteIconButtonStyle: CSSProperties = {
   width: "25px",
   height: "24px",
   padding: 0,
-  border: "1px solid #d9dfe5",
+  border: "1px solid var(--fw-border)",
   borderRadius: "5px",
-  background: "#fff",
+  background: "var(--fw-panel-bg)",
   color: "#c0392b",
   fontSize: "0.78rem",
   lineHeight: 1,
@@ -2071,7 +2088,7 @@ const modalContentStyle: CSSProperties = {
   overflowY: "auto",
   padding: "20px",
   borderRadius: "10px",
-  background: "#fff",
+  background: "var(--fw-panel-bg)",
   boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
 };
 
@@ -2082,14 +2099,14 @@ const modalHeaderStyle: CSSProperties = {
   gap: "12px",
   paddingBottom: "10px",
   marginBottom: "10px",
-  borderBottom: "1px solid #ddd",
+  borderBottom: "1px solid var(--fw-border)",
 };
 
 const closeModalButtonStyle: CSSProperties = {
   padding: 0,
   border: 0,
   background: "transparent",
-  color: "#777",
+  color: "var(--fw-text-muted)",
   fontSize: "2rem",
   lineHeight: 1,
   cursor: "pointer",
@@ -2107,8 +2124,8 @@ const deletedPlayerItemStyle: CSSProperties = {
   justifyContent: "space-between",
   gap: "12px",
   padding: "8px",
-  borderBottom: "1px solid #eee",
-  color: "#666",
+  borderBottom: "1px solid var(--fw-border-soft)",
+  color: "var(--fw-text-muted)",
   textDecoration: "line-through",
 };
 
@@ -2116,7 +2133,7 @@ const deletedRoleBadgeStyle: CSSProperties = {
   display: "inline-block",
   padding: "2px 6px",
   borderRadius: "4px",
-  color: "#222",
+  color: "var(--fw-text)",
   textDecoration: "none",
 };
 
