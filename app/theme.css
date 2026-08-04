@@ -63,7 +63,6 @@ html[data-theme="light"] {
   --fw-pma-bg-hover: #e9e6f0;
   --fw-pma-head-bg: #4b4d63;
 
-  --fw-reference-border: #8da2b0;
 }
 
 html[data-theme="dark"] {
@@ -130,7 +129,6 @@ html[data-theme="dark"] {
   --fw-pma-bg-hover: #2a2738;
   --fw-pma-head-bg: #3b3850;
 
-  --fw-reference-border: #607686;
 }
 
 html,
@@ -158,17 +156,19 @@ a {
  */
 .fantawalter-table thead .fantawalter-media-column {
   background-color: var(--fw-media-head-bg) !important;
-  border-left: 2px solid var(--fw-reference-border) !important;
 }
 
 .fantawalter-table thead .fantawalter-pma-column {
   background-color: var(--fw-pma-head-bg) !important;
-  border-right: 2px solid var(--fw-reference-border) !important;
+}
+
+.fantawalter-table thead .fantawalter-reference-column {
+  padding-left: 4px !important;
+  padding-right: 4px !important;
 }
 
 .fantawalter-table tbody .fantawalter-media-column {
   background-color: var(--fw-media-bg) !important;
-  border-left: 2px solid var(--fw-reference-border) !important;
   color: var(--fw-text) !important;
   font-weight: 800;
   text-align: center;
@@ -176,10 +176,14 @@ a {
 
 .fantawalter-table tbody .fantawalter-pma-column {
   background-color: var(--fw-pma-bg) !important;
-  border-right: 2px solid var(--fw-reference-border) !important;
   color: var(--fw-text) !important;
   font-weight: 800;
   text-align: center;
+}
+
+.fantawalter-table tbody .fantawalter-reference-column {
+  padding-left: 5px !important;
+  padding-right: 5px !important;
 }
 
 .fantawalter-table

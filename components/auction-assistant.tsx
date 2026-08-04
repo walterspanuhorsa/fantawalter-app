@@ -2005,7 +2005,7 @@ const headerCellStyle: CSSProperties = {
   position: "sticky",
   top: 0,
   zIndex: 2,
-  padding: "6px 7px",
+  padding: "6px 5px",
   borderWidth: "1px",
   borderStyle: "solid",
   borderColor: "var(--fw-table-head-border)",
@@ -2019,7 +2019,7 @@ const headerCellStyle: CSSProperties = {
 
 const columnDragHandleStyle: CSSProperties = {
   display: "inline-block",
-  marginRight: "5px",
+  marginRight: "3px",
   color: "var(--fw-text-muted)",
   fontSize: "0.78rem",
   letterSpacing: "-2px",
