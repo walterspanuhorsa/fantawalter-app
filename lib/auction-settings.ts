@@ -39,7 +39,7 @@ export const AUCTION_STORAGE_KEY =
   "fantawalter-auction-state-v1";
 
 export const BASE_COLUMNS: ColumnDefinition[] = [
-  { key: "ruolo", label: "Ruolo" },
+  { key: "ruolo", label: "R" },
   { key: "team", label: "Squadra" },
   { key: "nome", label: "Nome" },
   { key: "titolarita", label: "TIT" },

@@ -707,8 +707,9 @@ export default function SquadPanel({
                   ...headerStyle,
                   ...actionsHeaderStyle,
                 }}
+                title="Azioni"
               >
-                Azioni
+                Az.
               </th>
               <th style={headerStyle}>R</th>
               <th style={headerStyle}>Squadra</th>
@@ -1109,18 +1110,18 @@ const squadTitleContainerStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: "10px",
-  padding: "12px 14px",
-  marginBottom: "10px",
-  borderRadius: "9px",
+  gap: "8px",
+  padding: "9px 11px",
+  marginBottom: "7px",
+  borderRadius: "7px",
   background: "linear-gradient(135deg, #263746, #3f5870)",
   color: "#fff",
-  boxShadow: "0 4px 12px rgba(38, 55, 70, 0.18)",
+  boxShadow: "0 3px 9px rgba(38, 55, 70, 0.16)",
 };
 
 const squadTitleStyle: CSSProperties = {
   margin: 0,
-  fontSize: "1.18rem",
+  fontSize: "1.04rem",
   letterSpacing: "0.01em",
 };
 
@@ -1128,21 +1129,22 @@ const squadTitleBadgeStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  minWidth: "56px",
-  padding: "5px 9px",
+  minWidth: "48px",
+  padding: "3px 7px",
   borderWidth: "1px",
   borderStyle: "solid",
   borderColor: "rgba(255,255,255,0.28)",
   borderRadius: "999px",
   background: "rgba(255,255,255,0.14)",
+  fontSize: "0.82rem",
   fontWeight: 800,
 };
 
 const roleCountersStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-  gap: "7px",
-  marginBottom: "12px",
+  gap: "5px",
+  marginBottom: "8px",
 };
 
 const roleCounterCardStyle: CSSProperties = {
@@ -1150,18 +1152,18 @@ const roleCounterCardStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: "8px",
-  padding: "8px 9px",
+  gap: "5px",
+  padding: "5px 6px",
   borderWidth: "1px",
   borderStyle: "solid",
-  borderRadius: "7px",
+  borderRadius: "6px",
 };
 
 const roleCounterLabelStyle: CSSProperties = {
   minWidth: 0,
   overflow: "hidden",
   color: "#4d5d6c",
-  fontSize: "0.74rem",
+  fontSize: "0.68rem",
   fontWeight: 700,
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
@@ -1170,59 +1172,61 @@ const roleCounterLabelStyle: CSSProperties = {
 const roleCounterValueStyle: CSSProperties = {
   flexShrink: 0,
   color: "#243746",
-  fontSize: "0.88rem",
+  fontSize: "0.78rem",
 };
 
 const purchaseBudgetSummaryStyle: CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
   justifyContent: "space-between",
-  gap: "10px 16px",
-  padding: "9px 11px",
-  marginBottom: "12px",
+  gap: "6px 12px",
+  padding: "6px 8px",
+  marginBottom: "8px",
   borderWidth: "1px",
   borderStyle: "solid",
   borderColor: "#d6e4ef",
-  borderRadius: "7px",
+  borderRadius: "6px",
   background: "#f4f9fd",
   color: "#2c3e50",
-  fontSize: "0.9rem",
+  fontSize: "0.8rem",
 };
 
 const priceCellStyle: CSSProperties = {
-  padding: "8px",
+  padding: "4px 5px",
   borderWidth: "0 0 1px 1px",
   borderStyle: "solid",
   borderColor: "#dfe5ea",
   background: "#fff",
   whiteSpace: "nowrap",
   textAlign: "right",
+  fontSize: "0.76rem",
   fontWeight: 700,
 };
 
 const tableWrapperStyle: CSSProperties = {
-  maxHeight: "52vh",
+  maxHeight: "56vh",
   overflow: "auto",
   borderWidth: "1px",
   borderStyle: "solid",
   borderColor: "#d7dee5",
-  borderRadius: "8px",
+  borderRadius: "6px",
   background: "#fff",
 };
 
 const tableStyle: CSSProperties = {
   width: "100%",
-  minWidth: "760px",
+  minWidth: "630px",
   borderCollapse: "separate",
   borderSpacing: 0,
   background: "#fff",
+  fontSize: "0.76rem",
 };
 
 const headerStyle: CSSProperties = {
   position: "sticky",
   top: 0,
   zIndex: 3,
-  padding: "9px 8px",
+  padding: "6px 5px",
   borderWidth: "0 0 1px 1px",
   borderStyle: "solid",
   borderColor: "#52697d",
@@ -1230,23 +1234,28 @@ const headerStyle: CSSProperties = {
   color: "#fff",
   textAlign: "left",
   whiteSpace: "nowrap",
-  boxShadow: "0 2px 5px rgba(0,0,0,0.10)",
+  fontSize: "0.72rem",
+  lineHeight: 1.1,
+  boxShadow: "0 2px 4px rgba(0,0,0,0.09)",
 };
 
 const actionsHeaderStyle: CSSProperties = {
   left: 0,
   zIndex: 5,
-  minWidth: "76px",
+  width: "54px",
+  minWidth: "54px",
   textAlign: "center",
 };
 
 const cellStyle: CSSProperties = {
-  padding: "8px",
+  padding: "4px 5px",
   borderWidth: "0 0 1px 1px",
   borderStyle: "solid",
   borderColor: "#dfe5ea",
   background: "#fff",
   whiteSpace: "nowrap",
+  fontSize: "0.76rem",
+  lineHeight: 1.15,
 };
 
 const actionsCellStyle: CSSProperties = {
@@ -1254,29 +1263,30 @@ const actionsCellStyle: CSSProperties = {
   position: "sticky",
   left: 0,
   zIndex: 2,
-  width: "76px",
-  minWidth: "76px",
-  padding: "5px",
+  width: "54px",
+  minWidth: "54px",
+  padding: "2px",
   background: "#fff",
-  boxShadow: "2px 0 4px rgba(44, 62, 80, 0.06)",
+  boxShadow: "2px 0 3px rgba(44, 62, 80, 0.05)",
 };
 
 const emptyCellStyle: CSSProperties = {
-  padding: "28px",
+  padding: "18px",
   color: "#6b7b88",
   textAlign: "center",
+  fontSize: "0.8rem",
 };
 
 const rowActionsStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  gap: "5px",
+  gap: "2px",
 };
 
 const returnToListButtonStyle: CSSProperties = {
-  width: "30px",
-  height: "29px",
+  width: "24px",
+  height: "23px",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -1284,18 +1294,18 @@ const returnToListButtonStyle: CSSProperties = {
   borderWidth: "1px",
   borderStyle: "solid",
   borderColor: "#7fb9df",
-  borderRadius: "5px",
+  borderRadius: "4px",
   background: "#eaf5fc",
   color: "#2471a3",
-  fontSize: "1rem",
+  fontSize: "0.82rem",
   fontWeight: 800,
   lineHeight: 1,
   cursor: "pointer",
 };
 
 const moveToBinButtonStyle: CSSProperties = {
-  width: "30px",
-  height: "29px",
+  width: "24px",
+  height: "23px",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -1303,10 +1313,10 @@ const moveToBinButtonStyle: CSSProperties = {
   borderWidth: "1px",
   borderStyle: "solid",
   borderColor: "#e0b4b4",
-  borderRadius: "5px",
+  borderRadius: "4px",
   background: "#fff5f5",
   color: "#c0392b",
-  fontSize: "0.82rem",
+  fontSize: "0.68rem",
   lineHeight: 1,
   cursor: "pointer",
 };
@@ -1314,14 +1324,14 @@ const moveToBinButtonStyle: CSSProperties = {
 const statBarsContainerStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
-  gap: "2px",
+  gap: "1px",
 };
 
 const statBarStyle: CSSProperties = {
   display: "inline-block",
-  width: "7px",
-  height: "15px",
-  borderRadius: "2px",
+  width: "5px",
+  height: "12px",
+  borderRadius: "1px",
 };
 
 const alertsSectionStyle: CSSProperties = {
