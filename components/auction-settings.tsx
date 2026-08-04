@@ -35,8 +35,6 @@ export default function AuctionSettingsPanel({
     () => createDefaultAuctionSettings(),
   );
   const [storageReady, setStorageReady] = useState(false);
-  const [draggedColumnKey, setDraggedColumnKey] =
-    useState<string | null>(null);
 
   const allColumns = useMemo(
     () => getAllColumns(strategyColumns),
@@ -48,43 +46,20 @@ export default function AuctionSettingsPanel({
     [strategyColumns],
   );
 
-  const orderedColumns = useMemo(() => {
-    const columnsByKey = new Map(
-      allColumns.map((column) => [column.key, column]),
-    );
-    const ordered = settings.columnOrderKeys
-      .map((columnKey) => columnsByKey.get(columnKey))
-      .filter(
-        (column): column is ColumnDefinition =>
-          column !== undefined,
-      );
-    const orderedKeySet = new Set(
-      ordered.map((column) => column.key),
-    );
-
-    for (const column of allColumns) {
-      if (!orderedKeySet.has(column.key)) {
-        ordered.push(column);
-      }
-    }
-
-    return ordered;
-  }, [allColumns, settings.columnOrderKeys]);
-
-  const orderedMainColumns = useMemo(
+  const mainColumns = useMemo(
     () =>
-      orderedColumns.filter(
+      allColumns.filter(
         (column) => !strategyColumnKeySet.has(column.key),
       ),
-    [orderedColumns, strategyColumnKeySet],
+    [allColumns, strategyColumnKeySet],
   );
 
-  const orderedStrategyColumns = useMemo(
+  const strategySettingsColumns = useMemo(
     () =>
-      orderedColumns.filter((column) =>
+      allColumns.filter((column) =>
         strategyColumnKeySet.has(column.key),
       ),
-    [orderedColumns, strategyColumnKeySet],
+    [allColumns, strategyColumnKeySet],
   );
 
   const totalPlannedRoleBudget = ROLE_ORDER.reduce(
@@ -195,43 +170,6 @@ export default function AuctionSettingsPanel({
     updateSettings((current) => ({
       ...current,
       visibleColumnKeys: defaults.visibleColumnKeys,
-      columnOrderKeys: [],
-    }));
-  }
-
-  function reorderColumn(
-    sourceColumnKey: string,
-    targetColumnKey: string,
-  ): void {
-    if (sourceColumnKey === targetColumnKey) {
-      return;
-    }
-
-    const sourceIsStrategy =
-      strategyColumnKeySet.has(sourceColumnKey);
-    const targetIsStrategy =
-      strategyColumnKeySet.has(targetColumnKey);
-
-    if (sourceIsStrategy !== targetIsStrategy) {
-      return;
-    }
-
-    const nextOrder = orderedColumns.map(
-      (column) => column.key,
-    );
-    const sourceIndex = nextOrder.indexOf(sourceColumnKey);
-    const targetIndex = nextOrder.indexOf(targetColumnKey);
-
-    if (sourceIndex < 0 || targetIndex < 0) {
-      return;
-    }
-
-    nextOrder.splice(sourceIndex, 1);
-    nextOrder.splice(targetIndex, 0, sourceColumnKey);
-
-    updateSettings((current) => ({
-      ...current,
-      columnOrderKeys: nextOrder,
     }));
   }
 
@@ -268,54 +206,22 @@ export default function AuctionSettingsPanel({
     return columns.map((column) => {
       const isVisible =
         settings.visibleColumnKeys.includes(column.key);
-      const isDragging = draggedColumnKey === column.key;
 
       return (
-        <div
+        <button
           key={column.key}
-          draggable
-          onDragStart={(event) => {
-            setDraggedColumnKey(column.key);
-            event.dataTransfer.effectAllowed = "move";
-          }}
-          onDragOver={(event) => {
-            event.preventDefault();
-            event.dataTransfer.dropEffect = "move";
-          }}
-          onDrop={(event) => {
-            event.preventDefault();
-
-            if (draggedColumnKey) {
-              reorderColumn(draggedColumnKey, column.key);
-            }
-
-            setDraggedColumnKey(null);
-          }}
-          onDragEnd={() => setDraggedColumnKey(null)}
-          title="Trascina per riordinare la colonna nel suo gruppo"
+          type="button"
+          onClick={() => toggleColumn(column.key)}
+          aria-pressed={isVisible}
           style={{
-            ...columnDragItemStyle,
-            opacity: isDragging ? 0.45 : 1,
+            ...columnButtonStyle,
+            background: isVisible ? "#f1c40f" : "#e2e8ee",
+            borderColor: isVisible ? "#d99a00" : "#aeb8c2",
+            color: isVisible ? "#222" : "#56616c",
           }}
         >
-          <span aria-hidden="true" style={dragHandleStyle}>
-            ☰
-          </span>
-
-          <button
-            type="button"
-            onClick={() => toggleColumn(column.key)}
-            aria-pressed={isVisible}
-            style={{
-              ...columnButtonStyle,
-              background: isVisible ? "#f1c40f" : "#e2e8ee",
-              borderColor: isVisible ? "#d99a00" : "#aeb8c2",
-              color: isVisible ? "#222" : "#56616c",
-            }}
-          >
-            {column.label}
-          </button>
-        </div>
+          {column.label}
+        </button>
       );
     });
   }
@@ -371,12 +277,9 @@ export default function AuctionSettingsPanel({
           >
             <span role="status" style={saveStatusStyle}>
               {storageReady
-                ? "Le modifiche vengono salvate automaticamente."
+                ? "✓ Le modifiche vengono salvate automaticamente"
                 : "Caricamento impostazioni…"}
             </span>
-            <Link href="/" style={primaryLinkStyle}>
-              Vai all’asta
-            </Link>
           </div>
         </header>
 
@@ -588,8 +491,9 @@ export default function AuctionSettingsPanel({
               <div>
                 <h2 style={cardTitleStyle}>Tabella giocatori</h2>
                 <p style={cardDescriptionStyle}>
-                  Scegli le colonne visibili e trascinale per
-                  riordinarle nel proprio gruppo.
+                  Scegli le colonne da mostrare nella tabella.
+                  Per cambiarne l’ordine, trascina le intestazioni
+                  direttamente nella pagina dell’asta.
                 </p>
               </div>
 
@@ -616,15 +520,15 @@ export default function AuctionSettingsPanel({
                 Colonne principali
               </h3>
               <div style={columnButtonsStyle}>
-                {renderColumnControls(orderedMainColumns)}
+                {renderColumnControls(mainColumns)}
               </div>
             </section>
 
             <section style={strategyColumnGroupStyle}>
               <h3 style={columnGroupTitleStyle}>Strategie</h3>
-              {orderedStrategyColumns.length > 0 ? (
+              {strategySettingsColumns.length > 0 ? (
                 <div style={columnButtonsStyle}>
-                  {renderColumnControls(orderedStrategyColumns)}
+                  {renderColumnControls(strategySettingsColumns)}
                 </div>
               ) : (
                 <p style={emptyTextStyle}>
@@ -702,10 +606,18 @@ const headerStyle: CSSProperties = {
 
 const backLinkStyle: CSSProperties = {
   display: "inline-flex",
-  marginBottom: "8px",
-  color: "#2471a3",
-  fontSize: "0.9rem",
-  fontWeight: 700,
+  alignItems: "center",
+  minHeight: "38px",
+  marginBottom: "12px",
+  padding: "0 12px",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#9ec5df",
+  borderRadius: "7px",
+  background: "#eaf4fb",
+  color: "#1f618d",
+  fontSize: "0.92rem",
+  fontWeight: 800,
   textDecoration: "none",
 };
 
@@ -724,27 +636,23 @@ const subtitleStyle: CSSProperties = {
 
 const headerActionsStyle: CSSProperties = {
   display: "flex",
-  flexDirection: "column",
   alignItems: "flex-end",
-  gap: "8px",
+  justifyContent: "flex-end",
 };
 
 const saveStatusStyle: CSSProperties = {
-  color: "#637381",
-  fontSize: "0.8rem",
-};
-
-const primaryLinkStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
-  justifyContent: "center",
-  minHeight: "40px",
-  padding: "0 16px",
-  borderRadius: "7px",
-  background: "#2471a3",
-  color: "#fff",
+  minHeight: "38px",
+  padding: "0 12px",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#a9d8ba",
+  borderRadius: "999px",
+  background: "#edf9f1",
+  color: "#216a3a",
+  fontSize: "0.86rem",
   fontWeight: 800,
-  textDecoration: "none",
 };
 
 const settingsGridStyle: CSSProperties = {
@@ -997,34 +905,13 @@ const columnButtonsStyle: CSSProperties = {
   gap: "7px",
 };
 
-const columnDragItemStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "stretch",
-  borderRadius: "5px",
-  cursor: "grab",
-};
-
-const dragHandleStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  padding: "0 6px",
-  borderWidth: "1px 0 1px 1px",
-  borderStyle: "solid",
-  borderColor: "#95a5a6",
-  borderRadius: "5px 0 0 5px",
-  background: "#ecf0f1",
-  color: "#5d6d7e",
-  fontSize: "0.8rem",
-  userSelect: "none",
-};
-
 const columnButtonStyle: CSSProperties = {
   minHeight: "34px",
   padding: "5px 10px",
   borderWidth: "1px",
   borderStyle: "solid",
   borderColor: "#95a5a6",
-  borderRadius: "0 5px 5px 0",
+  borderRadius: "5px",
   fontWeight: 700,
   cursor: "pointer",
 };

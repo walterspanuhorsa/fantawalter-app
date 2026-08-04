@@ -62,6 +62,69 @@ const NON_SORTABLE_COLUMNS = new Set([
   "percezione",
 ]);
 
+const NOTE_ICON_LEGEND = [
+  "🏰 Modificatore",
+  "🧱 Imbattibilità",
+  "📋 Titolarissimo",
+  "🎲 Scommessa",
+  "❌ Pararigori",
+  "🔄 Subentrante",
+  "🚑 Rischio infortuni",
+  "➕ Bonus",
+  "👟 Assistman o tiratore",
+  "🟥 Cartellini",
+  "📉 Incostante",
+  "📈 Costante",
+  "🥅 Tanti gol",
+  "🅿️ Rigorista",
+  "🃏 Jolly",
+  "🦁 Coppa d’Africa",
+].join(" · ");
+
+const COLUMN_DESCRIPTIONS: Record<string, string> = {
+  ruolo: "Ruolo del giocatore: portiere, difensore, centrocampista o attaccante.",
+  team: "Squadra di appartenenza del giocatore.",
+  nome: "Nome del giocatore.",
+  titolarita:
+    "Titolarità (1–5): un valore di 4 o 5 indica un giocatore stabilmente titolare e difficilmente sostituibile nella propria squadra.",
+  affidabilita:
+    "Affidabilità (1–5): più il valore è alto, maggiore è la tendenza del giocatore a ottenere voti positivi.",
+  integrita:
+    "Integrità (1–5): più il valore è alto, minore è la propensione del giocatore agli infortuni.",
+  media_strategie:
+    "Prezzo consigliato medio, espresso in crediti, calcolato sulle valutazioni dei creator esperti.",
+  pma:
+    "Prezzo medio d’asta: media dei prezzi a cui il giocatore è stato acquistato nelle aste registrate su Fantalab.",
+  note: `Note sintetiche sul giocatore. Legenda: ${NOTE_ICON_LEGEND}`,
+  percezione:
+    "Confronta il prezzo medio d’asta con il prezzo consigliato medio: verde se il PMA è almeno il 10% più basso, rosso se è almeno il 10% più alto, grigio se i valori sono in linea o non disponibili.",
+};
+
+function getColumnDescription(
+  column: ColumnDefinition,
+): string {
+  if (COLUMN_DESCRIPTIONS[column.key]) {
+    return COLUMN_DESCRIPTIONS[column.key];
+  }
+
+  if (column.key.startsWith("strategia_")) {
+    return `Prezzo consigliato da ${column.label}, espresso in crediti in base al budget iniziale.`;
+  }
+
+  return column.label;
+}
+
+function getColumnHeaderTitle(
+  column: ColumnDefinition,
+  sortable: boolean,
+): string {
+  const interactionHelp = sortable
+    ? "Clicca per ordinare. Trascina per spostare la colonna."
+    : "Trascina per spostare la colonna.";
+
+  return `${getColumnDescription(column)}\n\n${interactionHelp}`;
+}
+
 function getTextValue(
   player: PlayerRow,
   columnName: string,
@@ -290,6 +353,9 @@ export default function AuctionAssistant({
 
   const [columnOrderKeys, setColumnOrderKeys] =
     useState<string[]>([]);
+
+  const [draggedColumnKey, setDraggedColumnKey] =
+    useState<string | null>(null);
 
   const [storageReady, setStorageReady] = useState(false);
 
@@ -813,6 +879,38 @@ export default function AuctionAssistant({
     setSortDirection("asc");
   }
 
+  function reorderColumn(
+    sourceColumnKey: string,
+    targetColumnKey: string,
+  ): void {
+    if (sourceColumnKey === targetColumnKey) {
+      return;
+    }
+
+    const sourceIsStrategy =
+      strategyColumnKeySet.has(sourceColumnKey);
+    const targetIsStrategy =
+      strategyColumnKeySet.has(targetColumnKey);
+
+    if (sourceIsStrategy !== targetIsStrategy) {
+      return;
+    }
+
+    const nextOrder = groupedOrderedColumns.map(
+      (column) => column.key,
+    );
+    const sourceIndex = nextOrder.indexOf(sourceColumnKey);
+    const targetIndex = nextOrder.indexOf(targetColumnKey);
+
+    if (sourceIndex < 0 || targetIndex < 0) {
+      return;
+    }
+
+    nextOrder.splice(sourceIndex, 1);
+    nextOrder.splice(targetIndex, 0, sourceColumnKey);
+    setColumnOrderKeys(nextOrder);
+  }
+
   function purchasePlayer(player: PlayerRow): void {
     setHoveredPlayer(null);
 
@@ -1222,7 +1320,7 @@ export default function AuctionAssistant({
                       ...headerCellStyle,
                       ...actionsHeaderCellStyle,
                     }}
-                    title="Azioni"
+                    title="Aggiungi il giocatore alla rosa oppure spostalo nel cestino."
                   >
                     Az.
                   </th>
@@ -1235,6 +1333,28 @@ export default function AuctionAssistant({
                     return (
                       <th
                         key={column.key}
+                        draggable
+                        onDragStart={(event) => {
+                          setDraggedColumnKey(column.key);
+                          event.dataTransfer.effectAllowed = "move";
+                        }}
+                        onDragOver={(event) => {
+                          event.preventDefault();
+                          event.dataTransfer.dropEffect = "move";
+                        }}
+                        onDrop={(event) => {
+                          event.preventDefault();
+
+                          if (draggedColumnKey) {
+                            reorderColumn(
+                              draggedColumnKey,
+                              column.key,
+                            );
+                          }
+
+                          setDraggedColumnKey(null);
+                        }}
+                        onDragEnd={() => setDraggedColumnKey(null)}
                         onClick={() => changeSorting(column.key)}
                         aria-sort={
                           sortable && sortColumn === column.key
@@ -1243,16 +1363,20 @@ export default function AuctionAssistant({
                               : "descending"
                             : "none"
                         }
-                        title={
-                          sortable
-                            ? `Ordina per ${column.label}`
-                            : column.label
-                        }
+                        title={getColumnHeaderTitle(column, sortable)}
                         style={{
                           ...headerCellStyle,
-                          cursor: sortable ? "pointer" : "default",
+                          cursor: "grab",
+                          opacity:
+                            draggedColumnKey === column.key ? 0.55 : 1,
                         }}
                       >
+                        <span
+                          aria-hidden="true"
+                          style={columnDragHandleStyle}
+                        >
+                          ⋮⋮
+                        </span>
                         {column.label}
                         {sortable && getSortIndicator(column.key)}
                       </th>
@@ -1664,6 +1788,15 @@ const headerCellStyle: CSSProperties = {
   textAlign: "left",
   whiteSpace: "nowrap",
   userSelect: "none",
+  transition: "opacity 0.15s ease",
+};
+
+const columnDragHandleStyle: CSSProperties = {
+  display: "inline-block",
+  marginRight: "5px",
+  color: "#b8c7d3",
+  fontSize: "0.78rem",
+  letterSpacing: "-2px",
 };
 
 const cellStyle: CSSProperties = {
