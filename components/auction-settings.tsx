@@ -28,6 +28,39 @@ interface AuctionSettingsPanelProps {
   strategyColumns: string[];
 }
 
+type SettingsSection =
+  | "general"
+  | "squad"
+  | "table"
+  | "reset";
+
+const SETTINGS_SECTIONS: Array<{
+  key: SettingsSection;
+  label: string;
+  description: string;
+}> = [
+  {
+    key: "general",
+    label: "Generale",
+    description: "Budget e gestione dei prezzi.",
+  },
+  {
+    key: "squad",
+    label: "Composizione rosa",
+    description: "Numero massimo di giocatori.",
+  },
+  {
+    key: "table",
+    label: "Tabella giocatori",
+    description: "Colonne visibili nell’asta.",
+  },
+  {
+    key: "reset",
+    label: "Ripristino",
+    description: "Azzera asta o preferenze.",
+  },
+];
+
 export default function AuctionSettingsPanel({
   strategyColumns,
 }: AuctionSettingsPanelProps) {
@@ -35,6 +68,8 @@ export default function AuctionSettingsPanel({
     () => createDefaultAuctionSettings(),
   );
   const [storageReady, setStorageReady] = useState(false);
+  const [activeSection, setActiveSection] =
+    useState<SettingsSection>("general");
 
   const allColumns = useMemo(
     () => getAllColumns(strategyColumns),
@@ -66,18 +101,26 @@ export default function AuctionSettingsPanel({
     (total, role) => total + settings.roleBudgets[role],
     0,
   );
+
   const unallocatedRoleBudget =
     settings.initialBudget - totalPlannedRoleBudget;
+
+  const totalPlayers = ROLE_ORDER.reduce(
+    (total, role) => total + settings.roleLimits[role],
+    0,
+  );
 
   useEffect(() => {
     const animationFrameId = window.requestAnimationFrame(() => {
       const persistedState = loadPersistedAuctionState();
+
       setSettings(
         resolveAuctionSettings(
           persistedState,
           strategyColumns,
         ),
       );
+
       setStorageReady(true);
     });
 
@@ -183,6 +226,7 @@ export default function AuctionSettingsPanel({
     }
 
     clearAuctionData();
+
     window.alert(
       "Asta azzerata. Le impostazioni sono state mantenute.",
     );
@@ -215,340 +259,342 @@ export default function AuctionSettingsPanel({
           aria-pressed={isVisible}
           style={{
             ...columnButtonStyle,
-            background: isVisible ? "#f1c40f" : "#e2e8ee",
-            borderColor: isVisible ? "#d99a00" : "#aeb8c2",
-            color: isVisible ? "#222" : "#56616c",
+            background: isVisible ? "#e9f3ff" : "#f2f4f6",
+            borderColor: isVisible ? "#4f8fca" : "#c9d1d8",
+            color: isVisible ? "#174c78" : "#68737d",
           }}
         >
+          <span
+            aria-hidden="true"
+            style={{
+              ...columnStateDotStyle,
+              background: isVisible ? "#2f80c5" : "#aeb7bf",
+            }}
+          />
           {column.label}
         </button>
       );
     });
   }
 
-  return (
-    <main style={pageStyle}>
-      <style>{`
-        @media (max-width: 720px) {
-          .fantawalter-settings-page {
-            padding: 10px !important;
-          }
+  function renderGeneralSection() {
+    return (
+      <>
+        <SectionHeader
+          title="Generale"
+          description="Configura il budget iniziale e gli avvisi basati sui prezzi di acquisto."
+        />
 
-          .fantawalter-settings-header {
-            align-items: stretch !important;
-            flex-direction: column !important;
-          }
-
-          .fantawalter-settings-grid,
-          .fantawalter-role-grid,
-          .fantawalter-form-grid {
-            grid-template-columns: minmax(0, 1fr) !important;
-          }
-
-          .fantawalter-settings-actions {
-            width: 100% !important;
-          }
-
-          .fantawalter-settings-actions a {
-            width: 100% !important;
-          }
-        }
-      `}</style>
-
-      <div className="fantawalter-settings-page" style={shellStyle}>
-        <header
-          className="fantawalter-settings-header"
-          style={headerStyle}
-        >
-          <div>
-            <Link href="/" style={backLinkStyle}>
-              ← Torna all’asta
-            </Link>
-            <h1 style={titleStyle}>Configurazione</h1>
-            <p style={subtitleStyle}>
-              Imposta la lega e personalizza l’interfaccia. Tutte le
-              modifiche vengono applicate alla pagina dell’asta.
-            </p>
-          </div>
-
-          <div
-            className="fantawalter-settings-actions"
-            style={headerActionsStyle}
-          >
-            <span role="status" style={saveStatusStyle}>
-              {storageReady
-                ? "✓ Le modifiche vengono salvate automaticamente"
-                : "Caricamento impostazioni…"}
-            </span>
-          </div>
-        </header>
-
-        <div
-          className="fantawalter-settings-grid"
-          style={settingsGridStyle}
-        >
-          <section style={cardStyle}>
-            <div style={cardHeaderStyle}>
-              <div>
-                <h2 style={cardTitleStyle}>Impostazioni dell’asta</h2>
-                <p style={cardDescriptionStyle}>
-                  Definisci il budget e l’eventuale registrazione dei
-                  prezzi reali.
-                </p>
-              </div>
-              <span style={sectionIconStyle}>⚙️</span>
+        <div style={settingsListStyle}>
+          <div className="fantawalter-setting-row" style={settingRowStyle}>
+            <div style={settingCopyStyle}>
+              <strong style={settingTitleStyle}>
+                Budget iniziale
+              </strong>
+              <span style={settingDescriptionStyle}>
+                Crediti disponibili all’inizio dell’asta.
+              </span>
             </div>
 
-            <div className="fantawalter-form-grid" style={formGridStyle}>
-              <label style={fieldStyle}>
-                <span style={labelStyle}>Budget iniziale</span>
-                <input
-                  type="number"
-                  min={1}
-                  step={1}
-                  value={settings.initialBudget}
-                  onChange={(event) => {
-                    const value = event.currentTarget.valueAsNumber;
+            <input
+              type="number"
+              min={1}
+              step={1}
+              value={settings.initialBudget}
+              onChange={(event) => {
+                const value =
+                  event.currentTarget.valueAsNumber;
 
-                    updateSettings((current) => ({
-                      ...current,
-                      initialBudget:
-                        Number.isFinite(value) && value > 0
-                          ? Math.trunc(value)
-                          : 1,
-                    }));
+                updateSettings((current) => ({
+                  ...current,
+                  initialBudget:
+                    Number.isFinite(value) && value > 0
+                      ? Math.trunc(value)
+                      : 1,
+                }));
+              }}
+              aria-label="Budget iniziale"
+              style={numberControlStyle}
+            />
+          </div>
+
+          <div className="fantawalter-setting-row" style={settingRowStyle}>
+            <div style={settingCopyStyle}>
+              <strong style={settingTitleStyle}>
+                Registra prezzi di acquisto
+              </strong>
+              <span style={settingDescriptionStyle}>
+                Attiva gli avvisi sulla spesa e richiede il prezzo
+                pagato per ogni giocatore acquistato.
+              </span>
+            </div>
+
+            <button
+              type="button"
+              aria-pressed={settings.recordPurchasePrice}
+              onClick={() =>
+                updateSettings((current) => ({
+                  ...current,
+                  recordPurchasePrice:
+                    !current.recordPurchasePrice,
+                }))
+              }
+              style={{
+                ...switchButtonStyle,
+                ...(settings.recordPurchasePrice
+                  ? switchButtonActiveStyle
+                  : {}),
+              }}
+            >
+              <span style={switchTrackStyle}>
+                <span
+                  style={{
+                    ...switchThumbStyle,
+                    transform: settings.recordPurchasePrice
+                      ? "translateX(20px)"
+                      : "translateX(0)",
                   }}
-                  style={controlStyle}
                 />
-                <small style={fieldHelpStyle}>
-                  Crediti disponibili all’inizio dell’asta.
-                </small>
-              </label>
+              </span>
+              <span>
+                {settings.recordPurchasePrice
+                  ? "Attivo"
+                  : "Disattivo"}
+              </span>
+            </button>
+          </div>
+        </div>
 
-              <button
-                type="button"
-                aria-pressed={settings.recordPurchasePrice}
-                onClick={() =>
-                  updateSettings((current) => ({
-                    ...current,
-                    recordPurchasePrice:
-                      !current.recordPurchasePrice,
-                  }))
-                }
+        {settings.recordPurchasePrice && (
+          <section style={subsectionStyle}>
+            <div style={subsectionHeaderStyle}>
+              <div>
+                <h3 style={subsectionTitleStyle}>
+                  Budget per reparto
+                </h3>
+                <p style={subsectionDescriptionStyle}>
+                  Imposta un tetto di spesa per ciascun ruolo.
+                </p>
+              </div>
+
+              <span
                 style={{
-                  ...toggleCardStyle,
-                  ...(settings.recordPurchasePrice
-                    ? toggleCardActiveStyle
+                  ...budgetBadgeStyle,
+                  ...(unallocatedRoleBudget < 0
+                    ? budgetBadgeWarningStyle
                     : {}),
                 }}
               >
-                <span aria-hidden="true" style={toggleIconStyle}>
-                  🧾
-                </span>
-                <span>
-                  <strong>Registra prezzi di acquisto</strong>
-                  <small style={toggleDescriptionStyle}>
-                    Attiva nuovi avvisi basati sulla spesa: dovrai
-                    inserire il prezzo pagato per ogni giocatore
-                    acquistato.
-                  </small>
-                </span>
-                <span style={toggleStatusStyle}>
-                  {settings.recordPurchasePrice ? "Attivo" : "Disattivo"}
-                </span>
-              </button>
-            </div>
-          </section>
-
-          <section style={cardStyle}>
-            <div style={cardHeaderStyle}>
-              <div>
-                <h2 style={cardTitleStyle}>Composizione della rosa</h2>
-                <p style={cardDescriptionStyle}>
-                  Imposta il numero massimo di giocatori previsto per
-                  ciascun ruolo.
-                </p>
-              </div>
-              <span style={sectionIconStyle}>👥</span>
+                {totalPlannedRoleBudget}/{settings.initialBudget}
+              </span>
             </div>
 
-            <div
-              className="fantawalter-role-grid"
-              style={roleGridStyle}
-            >
+            <div style={roleBudgetListStyle}>
               {ROLE_ORDER.map((role) => (
-                <label key={role} style={roleFieldStyle}>
-                  <span style={roleLabelStyle}>
-                    <strong>{role}</strong>
-                    <span>{roleLabel(role)}</span>
+                <label
+                  key={role}
+                  className="fantawalter-setting-row"
+                  style={compactSettingRowStyle}
+                >
+                  <span style={roleNameStyle}>
+                    {roleLabel(role)}
                   </span>
+
                   <input
                     type="number"
                     min={0}
                     step={1}
-                    value={settings.roleLimits[role]}
+                    value={settings.roleBudgets[role]}
                     onChange={(event) => {
                       const value =
                         event.currentTarget.valueAsNumber;
 
-                      changeRoleLimit(
+                      changeRoleBudget(
                         role,
                         Number.isFinite(value)
                           ? Math.max(0, Math.trunc(value))
                           : 0,
                       );
                     }}
-                    style={roleControlStyle}
+                    style={numberControlStyle}
                   />
                 </label>
               ))}
             </div>
-          </section>
 
-          <section style={cardStyle}>
-            <div style={cardHeaderStyle}>
-              <div>
-                <h2 style={cardTitleStyle}>Budget per reparto</h2>
-                <p style={cardDescriptionStyle}>
-                  Imposta un budget per ciascun ruolo per attivare gli
-                  avvisi sulla spesa.
-                </p>
+            <div
+              style={{
+                ...budgetStatusStyle,
+                ...(unallocatedRoleBudget < 0
+                  ? budgetStatusWarningStyle
+                  : {}),
+              }}
+            >
+              {unallocatedRoleBudget > 0 && (
+                <>
+                  Restano{" "}
+                  <strong>{unallocatedRoleBudget}</strong>{" "}
+                  crediti non assegnati.
+                </>
+              )}
+
+              {unallocatedRoleBudget === 0 && (
+                <>Il budget è interamente assegnato.</>
+              )}
+
+              {unallocatedRoleBudget < 0 && (
+                <>
+                  Il totale supera il budget iniziale di{" "}
+                  <strong>
+                    {Math.abs(unallocatedRoleBudget)}
+                  </strong>{" "}
+                  crediti.
+                </>
+              )}
+            </div>
+          </section>
+        )}
+      </>
+    );
+  }
+
+  function renderSquadSection() {
+    return (
+      <>
+        <SectionHeader
+          title="Composizione della rosa"
+          description="Definisci il numero massimo di giocatori previsto per ogni ruolo."
+          meta={`${totalPlayers} giocatori`}
+        />
+
+        <div style={roleLimitsListStyle}>
+          {ROLE_ORDER.map((role) => (
+            <label
+              key={role}
+              className="fantawalter-setting-row"
+              style={settingRowStyle}
+            >
+              <div style={settingCopyStyle}>
+                <strong style={settingTitleStyle}>
+                  {roleLabel(role)}
+                </strong>
+                <span style={settingDescriptionStyle}>
+                  Limite massimo per il ruolo {role}.
+                </span>
               </div>
-              <span style={plannedBudgetBadgeStyle}>
-                {totalPlannedRoleBudget}/{settings.initialBudget}
+
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={settings.roleLimits[role]}
+                onChange={(event) => {
+                  const value =
+                    event.currentTarget.valueAsNumber;
+
+                  changeRoleLimit(
+                    role,
+                    Number.isFinite(value)
+                      ? Math.max(0, Math.trunc(value))
+                      : 0,
+                  );
+                }}
+                aria-label={`Limite ${roleLabel(role)}`}
+                style={numberControlStyle}
+              />
+            </label>
+          ))}
+        </div>
+      </>
+    );
+  }
+
+  function renderTableSection() {
+    return (
+      <>
+        <SectionHeader
+          title="Tabella giocatori"
+          description="Scegli quali colonne mostrare durante l’asta."
+          meta={`${settings.visibleColumnKeys.length}/${allColumns.length} visibili`}
+        />
+
+        <div style={tableInfoStyle}>
+          L’ordine delle colonne si modifica trascinando le
+          intestazioni direttamente nella pagina dell’asta.
+        </div>
+
+        <div style={utilityButtonsStyle}>
+          <button
+            type="button"
+            onClick={showAllColumns}
+            style={secondaryButtonStyle}
+          >
+            Mostra tutte
+          </button>
+
+          <button
+            type="button"
+            onClick={restoreDefaultColumns}
+            style={secondaryButtonStyle}
+          >
+            Ripristina predefinite
+          </button>
+        </div>
+
+        <section style={columnSectionStyle}>
+          <h3 style={columnSectionTitleStyle}>
+            Colonne principali
+          </h3>
+
+          <div style={columnButtonsStyle}>
+            {renderColumnControls(mainColumns)}
+          </div>
+        </section>
+
+        <section style={columnSectionStyle}>
+          <h3 style={columnSectionTitleStyle}>
+            Strategie
+          </h3>
+
+          {strategySettingsColumns.length > 0 ? (
+            <div style={columnButtonsStyle}>
+              {renderColumnControls(
+                strategySettingsColumns,
+              )}
+            </div>
+          ) : (
+            <p style={emptyTextStyle}>
+              Nessuna colonna strategia rilevata.
+            </p>
+          )}
+        </section>
+      </>
+    );
+  }
+
+  function renderResetSection() {
+    return (
+      <>
+        <SectionHeader
+          title="Ripristino"
+          description="Gestisci separatamente i dati dell’asta e le preferenze dell’interfaccia."
+        />
+
+        <div style={resetListStyle}>
+          <section
+            className="fantawalter-setting-row"
+            style={resetItemStyle}
+          >
+            <div style={settingCopyStyle}>
+              <strong style={settingTitleStyle}>
+                Azzera asta corrente
+              </strong>
+              <span style={settingDescriptionStyle}>
+                Svuota la rosa, il cestino e i prezzi registrati,
+                mantenendo tutte le impostazioni.
               </span>
             </div>
 
-            {!settings.recordPurchasePrice ? (
-              <div style={disabledNoticeStyle}>
-                Attiva “Registra prezzi di acquisto” per utilizzare i
-                budget per reparto.
-              </div>
-            ) : (
-              <>
-                <div
-                  className="fantawalter-role-grid"
-                  style={roleGridStyle}
-                >
-                  {ROLE_ORDER.map((role) => (
-                    <label key={role} style={roleBudgetFieldStyle}>
-                      <span style={labelStyle}>
-                        {role} · {roleLabel(role)}
-                      </span>
-                      <input
-                        type="number"
-                        min={0}
-                        step={1}
-                        value={settings.roleBudgets[role]}
-                        onChange={(event) => {
-                          const value =
-                            event.currentTarget.valueAsNumber;
-
-                          changeRoleBudget(
-                            role,
-                            Number.isFinite(value)
-                              ? Math.max(0, Math.trunc(value))
-                              : 0,
-                          );
-                        }}
-                        style={controlStyle}
-                      />
-                    </label>
-                  ))}
-                </div>
-
-                <div
-                  style={{
-                    ...budgetStatusStyle,
-                    ...(unallocatedRoleBudget < 0
-                      ? budgetStatusWarningStyle
-                      : {}),
-                  }}
-                >
-                  {unallocatedRoleBudget > 0 && (
-                    <>
-                      Restano <strong>{unallocatedRoleBudget}</strong>{" "}
-                      crediti non assegnati.
-                    </>
-                  )}
-                  {unallocatedRoleBudget === 0 && (
-                    <>Il budget iniziale è interamente assegnato.</>
-                  )}
-                  {unallocatedRoleBudget < 0 && (
-                    <>
-                      La pianificazione supera il budget iniziale di{" "}
-                      <strong>{Math.abs(unallocatedRoleBudget)}</strong>{" "}
-                      crediti.
-                    </>
-                  )}
-                </div>
-              </>
-            )}
-          </section>
-
-          <section style={{ ...cardStyle, gridColumn: "1 / -1" }}>
-            <div style={cardHeaderStyle}>
-              <div>
-                <h2 style={cardTitleStyle}>Tabella giocatori</h2>
-                <p style={cardDescriptionStyle}>
-                  Scegli le colonne da mostrare nella tabella.
-                  Per cambiarne l’ordine, trascina le intestazioni
-                  direttamente nella pagina dell’asta.
-                </p>
-              </div>
-
-              <div style={utilityButtonsStyle}>
-                <button
-                  type="button"
-                  onClick={showAllColumns}
-                  style={secondaryButtonStyle}
-                >
-                  Mostra tutte
-                </button>
-                <button
-                  type="button"
-                  onClick={restoreDefaultColumns}
-                  style={secondaryButtonStyle}
-                >
-                  Ripristina predefinite
-                </button>
-              </div>
-            </div>
-
-            <section style={columnGroupStyle}>
-              <h3 style={columnGroupTitleStyle}>
-                Colonne principali
-              </h3>
-              <div style={columnButtonsStyle}>
-                {renderColumnControls(mainColumns)}
-              </div>
-            </section>
-
-            <section style={strategyColumnGroupStyle}>
-              <h3 style={columnGroupTitleStyle}>Strategie</h3>
-              {strategySettingsColumns.length > 0 ? (
-                <div style={columnButtonsStyle}>
-                  {renderColumnControls(strategySettingsColumns)}
-                </div>
-              ) : (
-                <p style={emptyTextStyle}>
-                  Nessuna colonna strategia rilevata.
-                </p>
-              )}
-            </section>
-          </section>
-
-          <section style={{ ...cardStyle, ...dangerCardStyle }}>
-            <div style={cardHeaderStyle}>
-              <div>
-                <h2 style={cardTitleStyle}>Asta corrente</h2>
-                <p style={cardDescriptionStyle}>
-                  Svuota la rosa, il cestino e i prezzi registrati,
-                  mantenendo tutte le impostazioni.
-                </p>
-              </div>
-              <span style={sectionIconStyle}>🗑️</span>
-            </div>
             <button
               type="button"
               onClick={resetAuction}
@@ -558,24 +604,165 @@ export default function AuctionSettingsPanel({
             </button>
           </section>
 
-          <section style={cardStyle}>
-            <div style={cardHeaderStyle}>
-              <div>
-                <h2 style={cardTitleStyle}>Impostazioni predefinite</h2>
-                <p style={cardDescriptionStyle}>
-                  Ripristina budget, limiti e colonne senza cancellare
-                  i giocatori già acquistati.
-                </p>
-              </div>
-              <span style={sectionIconStyle}>↺</span>
+          <section
+            className="fantawalter-setting-row"
+            style={resetItemStyle}
+          >
+            <div style={settingCopyStyle}>
+              <strong style={settingTitleStyle}>
+                Ripristina impostazioni predefinite
+              </strong>
+              <span style={settingDescriptionStyle}>
+                Ripristina budget, limiti e colonne senza
+                cancellare i giocatori già acquistati.
+              </span>
             </div>
+
             <button
               type="button"
               onClick={resetPreferences}
               style={secondaryButtonStyle}
             >
-              Ripristina impostazioni
+             Ripristina impostazioni predefinite
             </button>
+          </section>
+        </div>
+      </>
+    );
+  }
+
+  function renderActiveSection() {
+    switch (activeSection) {
+      case "general":
+        return renderGeneralSection();
+      case "squad":
+        return renderSquadSection();
+      case "table":
+        return renderTableSection();
+      case "reset":
+        return renderResetSection();
+    }
+  }
+
+  return (
+    <main style={pageStyle}>
+      <style>{`
+        @media (max-width: 820px) {
+          .fantawalter-settings-layout {
+            grid-template-columns: minmax(0, 1fr) !important;
+          }
+
+          .fantawalter-settings-nav {
+            position: static !important;
+            display: flex !important;
+            overflow-x: auto !important;
+            padding: 8px !important;
+          }
+
+          .fantawalter-settings-nav button {
+            min-width: max-content !important;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .fantawalter-settings-page {
+            padding: 12px !important;
+          }
+
+          .fantawalter-settings-header {
+            align-items: flex-start !important;
+            flex-direction: column !important;
+          }
+
+          .fantawalter-setting-row {
+            align-items: flex-start !important;
+            flex-direction: column !important;
+          }
+
+          .fantawalter-setting-row input,
+          .fantawalter-setting-row button {
+            width: 100% !important;
+          }
+
+          .fantawalter-settings-content {
+            padding: 18px !important;
+          }
+        }
+      `}</style>
+
+      <div
+        className="fantawalter-settings-page"
+        style={shellStyle}
+      >
+        <Link href="/" style={backLinkStyle}>
+          ← Torna all’asta
+        </Link>
+
+        <header
+          className="fantawalter-settings-header"
+          style={headerStyle}
+        >
+          <div>
+            <h1 style={titleStyle}>Configurazione</h1>
+            <p style={subtitleStyle}>
+              Gestisci le impostazioni della tua asta.
+            </p>
+          </div>
+
+          <span role="status" style={saveStatusStyle}>
+            {storageReady
+              ? "✓ Modifiche salvate automaticamente"
+              : "Caricamento impostazioni…"}
+          </span>
+        </header>
+
+        <div
+          className="fantawalter-settings-layout"
+          style={settingsLayoutStyle}
+        >
+          <nav
+            className="fantawalter-settings-nav"
+            aria-label="Sezioni configurazione"
+            style={navigationStyle}
+          >
+            {SETTINGS_SECTIONS.map((section) => {
+              const isActive =
+                activeSection === section.key;
+
+              return (
+                <button
+                  key={section.key}
+                  type="button"
+                  onClick={() =>
+                    setActiveSection(section.key)
+                  }
+                  aria-current={
+                    isActive ? "page" : undefined
+                  }
+                  style={{
+                    ...navigationButtonStyle,
+                    ...(isActive
+                      ? navigationButtonActiveStyle
+                      : {}),
+                  }}
+                >
+                  <span style={navigationLabelStyle}>
+                    {section.label}
+                  </span>
+
+                  <span style={navigationDescriptionStyle}>
+                    {section.description}
+                  </span>
+                </button>
+              );
+            })}
+          </nav>
+
+          <section
+            className="fantawalter-settings-content"
+            style={contentPanelStyle}
+          >
+            {renderActiveSection()}
           </section>
         </div>
       </div>
@@ -583,17 +770,62 @@ export default function AuctionSettingsPanel({
   );
 }
 
+interface SectionHeaderProps {
+  title: string;
+  description: string;
+  meta?: string;
+}
+
+function SectionHeader({
+  title,
+  description,
+  meta,
+}: SectionHeaderProps) {
+  return (
+    <header style={sectionHeaderStyle}>
+      <div>
+        <h2 style={sectionTitleStyle}>{title}</h2>
+        <p style={sectionDescriptionStyle}>
+          {description}
+        </p>
+      </div>
+
+      {meta && (
+        <span style={sectionMetaStyle}>{meta}</span>
+      )}
+    </header>
+  );
+}
+
 const pageStyle: CSSProperties = {
   minHeight: "100vh",
   padding: "24px",
-  background: "#eef2f5",
+  background: "#f2f5f7",
   color: "#1f2933",
   fontFamily: "Arial, sans-serif",
 };
 
 const shellStyle: CSSProperties = {
-  maxWidth: "1180px",
+  maxWidth: "1120px",
   margin: "0 auto",
+};
+
+const backLinkStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  minHeight: "38px",
+  marginBottom: "18px",
+  padding: "0 13px",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#9ec5df",
+  borderRadius: "7px",
+  background: "#ffffff",
+  color: "#175a8a",
+  fontSize: "0.92rem",
+  fontWeight: 800,
+  textDecoration: "none",
+  boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)",
 };
 
 const headerStyle: CSSProperties = {
@@ -601,253 +833,307 @@ const headerStyle: CSSProperties = {
   alignItems: "flex-end",
   justifyContent: "space-between",
   gap: "20px",
-  marginBottom: "18px",
-};
-
-const backLinkStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  minHeight: "38px",
-  marginBottom: "12px",
-  padding: "0 12px",
-  borderWidth: "1px",
-  borderStyle: "solid",
-  borderColor: "#9ec5df",
-  borderRadius: "7px",
-  background: "#eaf4fb",
-  color: "#1f618d",
-  fontSize: "0.92rem",
-  fontWeight: 800,
-  textDecoration: "none",
+  marginBottom: "22px",
 };
 
 const titleStyle: CSSProperties = {
   margin: 0,
   color: "#243746",
-  fontSize: "clamp(1.8rem, 4vw, 2.5rem)",
+  fontSize: "clamp(1.9rem, 4vw, 2.55rem)",
+  lineHeight: 1.1,
 };
 
 const subtitleStyle: CSSProperties = {
-  maxWidth: "680px",
-  margin: "7px 0 0",
+  margin: "8px 0 0",
   color: "#637381",
-  lineHeight: 1.5,
-};
-
-const headerActionsStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "flex-end",
-  justifyContent: "flex-end",
+  fontSize: "0.96rem",
 };
 
 const saveStatusStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   minHeight: "38px",
-  padding: "0 12px",
+  padding: "0 13px",
   borderWidth: "1px",
   borderStyle: "solid",
   borderColor: "#a9d8ba",
   borderRadius: "999px",
   background: "#edf9f1",
   color: "#216a3a",
-  fontSize: "0.86rem",
+  fontSize: "0.84rem",
   fontWeight: 800,
+  whiteSpace: "nowrap",
 };
 
-const settingsGridStyle: CSSProperties = {
+const settingsLayoutStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-  gap: "14px",
+  gridTemplateColumns: "230px minmax(0, 1fr)",
+  gap: "16px",
+  alignItems: "start",
 };
 
-const cardStyle: CSSProperties = {
-  minWidth: 0,
-  padding: "18px",
-  borderWidth: "1px",
-  borderStyle: "solid",
-  borderColor: "#d7e0e7",
-  borderRadius: "10px",
-  background: "#fff",
-  boxShadow: "0 3px 12px rgba(35, 55, 70, 0.06)",
-};
-
-const cardHeaderStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: "14px",
-  marginBottom: "16px",
-};
-
-const cardTitleStyle: CSSProperties = {
-  margin: 0,
-  color: "#2c3e50",
-  fontSize: "1.08rem",
-};
-
-const cardDescriptionStyle: CSSProperties = {
-  margin: "5px 0 0",
-  color: "#637381",
-  fontSize: "0.86rem",
-  lineHeight: 1.45,
-};
-
-const sectionIconStyle: CSSProperties = {
-  flexShrink: 0,
-  fontSize: "1.2rem",
-};
-
-const formGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "minmax(160px, 0.65fr) minmax(250px, 1.35fr)",
-  gap: "12px",
-  alignItems: "stretch",
-};
-
-const fieldStyle: CSSProperties = {
+const navigationStyle: CSSProperties = {
+  position: "sticky",
+  top: "20px",
   display: "flex",
   flexDirection: "column",
-};
-
-const labelStyle: CSSProperties = {
-  display: "block",
-  marginBottom: "6px",
-  color: "#2c3e50",
-  fontWeight: 800,
-};
-
-const fieldHelpStyle: CSSProperties = {
-  marginTop: "6px",
-  color: "#71808d",
-  fontSize: "0.76rem",
-};
-
-const controlStyle: CSSProperties = {
-  width: "100%",
-  minHeight: "42px",
-  padding: "8px 10px",
-  borderWidth: "2px",
-  borderStyle: "solid",
-  borderColor: "#b5c3cf",
-  borderRadius: "7px",
-  background: "#fff",
-  color: "#1f2933",
-  fontSize: "0.95rem",
-  outline: "none",
-};
-
-const toggleCardStyle: CSSProperties = {
-  position: "relative",
-  minHeight: "88px",
-  display: "grid",
-  gridTemplateColumns: "auto minmax(0, 1fr) auto",
-  alignItems: "center",
-  gap: "11px",
-  padding: "12px 13px",
+  gap: "5px",
+  padding: "8px",
   borderWidth: "1px",
   borderStyle: "solid",
-  borderColor: "#c4d0da",
-  borderRadius: "8px",
-  background: "#f9fbfc",
-  color: "#2c3e50",
+  borderColor: "#dbe2e8",
+  borderRadius: "10px",
+  background: "#ffffff",
+  boxShadow: "0 3px 12px rgba(35, 55, 70, 0.05)",
+};
+
+const navigationButtonStyle: CSSProperties = {
+  width: "100%",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "flex-start",
+  gap: "3px",
+  padding: "11px 12px",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "transparent",
+  borderRadius: "7px",
+  background: "transparent",
+  color: "#34495e",
   textAlign: "left",
   cursor: "pointer",
 };
 
-const toggleCardActiveStyle: CSSProperties = {
-  borderColor: "#2980b9",
+const navigationButtonActiveStyle: CSSProperties = {
+  borderColor: "#b8d5eb",
   background: "#eaf4fb",
-  boxShadow: "0 0 0 2px rgba(41,128,185,0.1)",
+  color: "#174c78",
 };
 
-const toggleIconStyle: CSSProperties = {
-  fontSize: "1.25rem",
+const navigationLabelStyle: CSSProperties = {
+  fontWeight: 800,
+  lineHeight: 1.2,
 };
 
-const toggleDescriptionStyle: CSSProperties = {
-  display: "block",
-  marginTop: "4px",
+const navigationDescriptionStyle: CSSProperties = {
+  color: "#71808d",
+  fontSize: "0.75rem",
+  lineHeight: 1.25,
+};
+
+const contentPanelStyle: CSSProperties = {
+  minWidth: 0,
+  minHeight: "520px",
+  padding: "26px",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#dbe2e8",
+  borderRadius: "10px",
+  background: "#ffffff",
+  boxShadow: "0 4px 16px rgba(35, 55, 70, 0.06)",
+};
+
+const sectionHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: "16px",
+  paddingBottom: "18px",
+  marginBottom: "6px",
+  borderBottomWidth: "1px",
+  borderBottomStyle: "solid",
+  borderBottomColor: "#e5eaee",
+};
+
+const sectionTitleStyle: CSSProperties = {
+  margin: 0,
+  color: "#243746",
+  fontSize: "1.35rem",
+};
+
+const sectionDescriptionStyle: CSSProperties = {
+  margin: "6px 0 0",
   color: "#637381",
-  fontSize: "0.78rem",
-  fontWeight: 400,
-  lineHeight: 1.35,
+  fontSize: "0.9rem",
+  lineHeight: 1.45,
 };
 
-const toggleStatusStyle: CSSProperties = {
-  padding: "4px 7px",
+const sectionMetaStyle: CSSProperties = {
+  flexShrink: 0,
+  padding: "5px 9px",
   borderRadius: "999px",
-  background: "rgba(255,255,255,0.8)",
-  color: "#2471a3",
-  fontSize: "0.72rem",
+  background: "#edf4fa",
+  color: "#29628d",
+  fontSize: "0.78rem",
   fontWeight: 800,
 };
 
-const roleGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-  gap: "9px",
+const settingsListStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
 };
 
-const roleFieldStyle: CSSProperties = {
+const settingRowStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: "10px",
-  padding: "10px",
-  borderRadius: "8px",
-  background: "#f7f9fb",
+  gap: "24px",
+  padding: "18px 0",
+  borderBottomWidth: "1px",
+  borderBottomStyle: "solid",
+  borderBottomColor: "#edf0f2",
 };
 
-const roleLabelStyle: CSSProperties = {
+const compactSettingRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "18px",
+  padding: "11px 0",
+  borderBottomWidth: "1px",
+  borderBottomStyle: "solid",
+  borderBottomColor: "#edf0f2",
+};
+
+const settingCopyStyle: CSSProperties = {
   minWidth: 0,
   display: "flex",
   flexDirection: "column",
-  gap: "2px",
-  color: "#34495e",
-  fontSize: "0.8rem",
+  gap: "4px",
 };
 
-const roleControlStyle: CSSProperties = {
-  width: "58px",
+const settingTitleStyle: CSSProperties = {
+  color: "#2c3e50",
+  fontSize: "0.96rem",
+};
+
+const settingDescriptionStyle: CSSProperties = {
+  maxWidth: "560px",
+  color: "#71808d",
+  fontSize: "0.82rem",
+  lineHeight: 1.4,
+};
+
+const numberControlStyle: CSSProperties = {
+  width: "110px",
   minHeight: "40px",
-  padding: "6px",
-  borderWidth: "2px",
+  flexShrink: 0,
+  padding: "7px 10px",
+  borderWidth: "1px",
   borderStyle: "solid",
-  borderColor: "#b8c7d3",
+  borderColor: "#aebdca",
   borderRadius: "7px",
-  background: "#fff",
-  textAlign: "center",
-  fontWeight: 700,
+  background: "#ffffff",
+  color: "#1f2933",
+  fontSize: "0.95rem",
+  textAlign: "right",
+  outline: "none",
 };
 
-const roleBudgetFieldStyle: CSSProperties = {
-  minWidth: 0,
+const switchButtonStyle: CSSProperties = {
+  minWidth: "126px",
+  minHeight: "40px",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "9px",
+  padding: "6px 10px",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#bdc7cf",
+  borderRadius: "999px",
+  background: "#f5f7f8",
+  color: "#596672",
+  fontWeight: 800,
+  cursor: "pointer",
 };
 
-const plannedBudgetBadgeStyle: CSSProperties = {
+const switchButtonActiveStyle: CSSProperties = {
+  borderColor: "#72b28b",
+  background: "#edf9f1",
+  color: "#216a3a",
+};
+
+const switchTrackStyle: CSSProperties = {
+  width: "42px",
+  height: "22px",
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "2px",
+  borderRadius: "999px",
+  background: "#c4ccd2",
+};
+
+const switchThumbStyle: CSSProperties = {
+  width: "18px",
+  height: "18px",
+  display: "block",
+  borderRadius: "50%",
+  background: "#ffffff",
+  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.22)",
+  transition: "transform 0.18s ease",
+};
+
+const subsectionStyle: CSSProperties = {
+  marginTop: "24px",
+  padding: "18px",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#dce5eb",
+  borderRadius: "9px",
+  background: "#f9fbfc",
+};
+
+const subsectionHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: "14px",
+  marginBottom: "10px",
+};
+
+const subsectionTitleStyle: CSSProperties = {
+  margin: 0,
+  color: "#2c3e50",
+  fontSize: "1.02rem",
+};
+
+const subsectionDescriptionStyle: CSSProperties = {
+  margin: "5px 0 0",
+  color: "#71808d",
+  fontSize: "0.82rem",
+};
+
+const budgetBadgeStyle: CSSProperties = {
   flexShrink: 0,
   padding: "5px 9px",
   borderRadius: "999px",
   background: "#eaf4fb",
   color: "#2471a3",
+  fontSize: "0.78rem",
   fontWeight: 800,
-  fontSize: "0.82rem",
 };
 
-const disabledNoticeStyle: CSSProperties = {
-  padding: "12px",
-  borderRadius: "7px",
-  background: "#f3f5f7",
-  color: "#637381",
-  fontSize: "0.86rem",
+const budgetBadgeWarningStyle: CSSProperties = {
+  background: "#ffebee",
+  color: "#b03a2e",
+};
+
+const roleBudgetListStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+};
+
+const roleNameStyle: CSSProperties = {
+  color: "#34495e",
+  fontWeight: 700,
 };
 
 const budgetStatusStyle: CSSProperties = {
-  marginTop: "12px",
-  padding: "9px 11px",
+  marginTop: "14px",
+  padding: "10px 12px",
   borderRadius: "7px",
-  background: "#f2f8fc",
+  background: "#eef6fb",
   color: "#34495e",
   fontSize: "0.84rem",
 };
@@ -857,63 +1143,79 @@ const budgetStatusWarningStyle: CSSProperties = {
   color: "#b03a2e",
 };
 
+const roleLimitsListStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+};
+
+const tableInfoStyle: CSSProperties = {
+  margin: "18px 0 14px",
+  padding: "11px 12px",
+  borderRadius: "7px",
+  background: "#f2f6f9",
+  color: "#52616d",
+  fontSize: "0.84rem",
+  lineHeight: 1.4,
+};
+
 const utilityButtonsStyle: CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
-  justifyContent: "flex-end",
   gap: "8px",
+  marginBottom: "20px",
 };
 
 const secondaryButtonStyle: CSSProperties = {
-  minHeight: "36px",
-  padding: "0 11px",
+  minHeight: "38px",
+  padding: "0 12px",
   borderWidth: "1px",
   borderStyle: "solid",
   borderColor: "#aeb9c3",
   borderRadius: "6px",
-  background: "#fff",
+  background: "#ffffff",
   color: "#34495e",
   fontWeight: 700,
   cursor: "pointer",
 };
 
-const columnGroupStyle: CSSProperties = {
-  padding: "11px",
-  borderWidth: "1px",
-  borderStyle: "solid",
-  borderColor: "#dfe5ea",
-  borderRadius: "8px",
-  background: "#fbfcfd",
+const columnSectionStyle: CSSProperties = {
+  padding: "16px 0",
+  borderTopWidth: "1px",
+  borderTopStyle: "solid",
+  borderTopColor: "#edf0f2",
 };
 
-const strategyColumnGroupStyle: CSSProperties = {
-  ...columnGroupStyle,
-  marginTop: "10px",
-  borderColor: "#dccb9f",
-  background: "#fffaf0",
-};
-
-const columnGroupTitleStyle: CSSProperties = {
-  margin: "0 0 9px",
+const columnSectionTitleStyle: CSSProperties = {
+  margin: "0 0 12px",
   color: "#34495e",
-  fontSize: "0.9rem",
+  fontSize: "0.95rem",
 };
 
 const columnButtonsStyle: CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
-  gap: "7px",
+  gap: "8px",
 };
 
 const columnButtonStyle: CSSProperties = {
-  minHeight: "34px",
-  padding: "5px 10px",
+  minHeight: "36px",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "7px",
+  padding: "6px 10px",
   borderWidth: "1px",
   borderStyle: "solid",
-  borderColor: "#95a5a6",
-  borderRadius: "5px",
+  borderColor: "#c9d1d8",
+  borderRadius: "6px",
   fontWeight: 700,
   cursor: "pointer",
+};
+
+const columnStateDotStyle: CSSProperties = {
+  width: "8px",
+  height: "8px",
+  flexShrink: 0,
+  borderRadius: "50%",
 };
 
 const emptyTextStyle: CSSProperties = {
@@ -922,18 +1224,33 @@ const emptyTextStyle: CSSProperties = {
   fontSize: "0.84rem",
 };
 
-const dangerCardStyle: CSSProperties = {
-  borderColor: "#edc4c1",
-  background: "#fffafa",
+const resetListStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  marginTop: "8px",
+};
+
+const resetItemStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "24px",
+  padding: "22px 0",
+  borderBottomWidth: "1px",
+  borderBottomStyle: "solid",
+  borderBottomColor: "#edf0f2",
 };
 
 const dangerButtonStyle: CSSProperties = {
   minHeight: "38px",
+  flexShrink: 0,
   padding: "0 13px",
-  border: 0,
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#b63125",
   borderRadius: "6px",
   background: "#c0392b",
-  color: "#fff",
+  color: "#ffffff",
   fontWeight: 800,
   cursor: "pointer",
 };
