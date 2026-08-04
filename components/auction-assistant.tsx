@@ -82,9 +82,8 @@ const NOTE_ICON_LEGEND = [
 ].join(" · ");
 
 const COLUMN_DESCRIPTIONS: Record<string, string> = {
-  ruolo: "Ruolo del giocatore: portiere, difensore, centrocampista o attaccante.",
   giocatore:
-    "Mostra il nome del giocatore e, sopra, la sua squadra di appartenenza.",
+    "Mostra il ruolo a sinistra e, a destra, squadra e nome del giocatore.",
   titolarita:
     "Titolarità (1–5): un valore di 4 o 5 indica un giocatore stabilmente titolare e difficilmente sostituibile nella propria squadra.",
   affidabilita:
@@ -187,6 +186,51 @@ function getRoleCellStyle(role: string): CSSProperties {
     default:
       return {};
   }
+}
+
+function getRoleColor(role: PlayerRole): string {
+  switch (role) {
+    case "P":
+      return "#d99000";
+    case "D":
+      return "#219653";
+    case "C":
+      return "#2d9cdb";
+    case "A":
+      return "#c44536";
+  }
+}
+
+function getRoleFilterButtonStyle(
+  role: PlayerRole | null,
+  active: boolean,
+): CSSProperties {
+  if (!active) {
+    return {
+      background: "transparent",
+      borderColor: "#aebdca",
+      color: "#52616d",
+      boxShadow: "none",
+    };
+  }
+
+  return {
+    background: role ? getRoleColor(role) : "#34495e",
+    borderColor: role ? "#ffffff" : "#34495e",
+    color: "#ffffff",
+    boxShadow: role
+      ? "0 0 0 2px #f8f9fa, 0 2px 7px rgba(15, 23, 42, 0.2)"
+      : "0 2px 7px rgba(15, 23, 42, 0.16)",
+  };
+}
+
+function getPlayerRoleBadgeStyle(
+  role: PlayerRole | null,
+): CSSProperties {
+  return {
+    ...playerRoleBadgeStyle,
+    background: role ? getRoleColor(role) : "#7f8c8d",
+  };
 }
 
 function readPositiveNumber(value: unknown): number | null {
@@ -342,7 +386,7 @@ export default function AuctionAssistant({
 }: AuctionAssistantProps) {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const [roleFilter, setRoleFilter] = useState("");
+  const [roleFilter, setRoleFilter] = useState<PlayerRole | "">("");
   const [teamFilter, setTeamFilter] = useState("");
   const [nameSearch, setNameSearch] = useState("");
   const [initialBudget, setInitialBudget] = useState(500);
@@ -658,20 +702,6 @@ export default function AuctionAssistant({
       ),
     [groupedOrderedColumns, visibleColumnKeys],
   );
-
-  const roles = useMemo(() => {
-    const roleOrder = ["P", "D", "C", "A"];
-
-    const availableRoles = new Set(
-      initialPlayers
-        .map((player) => getTextValue(player, "ruolo"))
-        .filter(Boolean),
-    );
-
-    return roleOrder.filter((role) =>
-      availableRoles.has(role),
-    );
-  }, [initialPlayers]);
 
   const teams = useMemo(() => {
     return Array.from(
@@ -1211,7 +1241,12 @@ export default function AuctionAssistant({
           }
 
           .fantawalter-filter-bin {
-            width: 100% !important;
+            width: auto !important;
+            margin-left: auto !important;
+          }
+
+          .fantawalter-role-filter {
+            flex: 1 1 100% !important;
           }
 
         }
@@ -1263,25 +1298,58 @@ export default function AuctionAssistant({
           style={containerStyle}
         >
           <div style={filtersStyle}>
-            <label className="fantawalter-filter-field">
+            <div
+              className="fantawalter-role-filter"
+              style={roleFilterFieldStyle}
+            >
               <span style={labelStyle}>Ruolo</span>
 
-              <select
-                value={roleFilter}
-                onChange={(event) =>
-                  setRoleFilter(event.target.value)
-                }
-                style={{ ...controlStyle, minWidth: "110px" }}
+              <div
+                role="group"
+                aria-label="Filtra i giocatori per ruolo"
+                style={roleFilterButtonsStyle}
               >
-                <option value="">Tutti</option>
+                <button
+                  type="button"
+                  aria-pressed={roleFilter === ""}
+                  title="Tutti i ruoli"
+                  onClick={() => setRoleFilter("")}
+                  style={{
+                    ...roleFilterButtonStyle,
+                    ...allRolesFilterButtonStyle,
+                    ...getRoleFilterButtonStyle(
+                      null,
+                      roleFilter === "",
+                    ),
+                  }}
+                >
+                  Tutti
+                </button>
 
-                {roles.map((role) => (
-                  <option key={role} value={role}>
-                    {role}
-                  </option>
-                ))}
-              </select>
-            </label>
+                {ROLE_ORDER.map((role) => {
+                  const active = roleFilter === role;
+
+                  return (
+                    <button
+                      key={role}
+                      type="button"
+                      aria-pressed={active}
+                      title={ROLE_PLURAL_LABELS[role]}
+                      onClick={() => setRoleFilter(role)}
+                      style={{
+                        ...roleFilterButtonStyle,
+                        ...getRoleFilterButtonStyle(
+                          role,
+                          active,
+                        ),
+                      }}
+                    >
+                      {role}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
             <label className="fantawalter-filter-field">
               <span style={labelStyle}>Squadra</span>
@@ -1291,7 +1359,7 @@ export default function AuctionAssistant({
                 onChange={(event) =>
                   setTeamFilter(event.target.value)
                 }
-                style={{ ...controlStyle, minWidth: "180px" }}
+                style={{ ...controlStyle, minWidth: "150px" }}
               >
                 <option value="">Tutte</option>
 
@@ -1312,7 +1380,7 @@ export default function AuctionAssistant({
                 type="search"
                 list="fantawalter-player-names"
                 value={nameSearch}
-                placeholder="Nome, squadra o ruolo..."
+                placeholder="Nome o squadra..."
                 autoComplete="off"
                 onChange={(event) =>
                   setNameSearch(event.target.value)
@@ -1325,7 +1393,7 @@ export default function AuctionAssistant({
                 style={{
                   ...controlStyle,
                   width: "100%",
-                  minWidth: "280px",
+                  minWidth: "250px",
                 }}
               />
 
@@ -1492,9 +1560,6 @@ export default function AuctionAssistant({
                             }
                             style={{
                               ...cellStyle,
-                              ...(column.key === "ruolo"
-                                ? getRoleCellStyle(ruolo)
-                                : {}),
                               ...(isPlayerColumn
                                 ? playerColumnCellStyle
                                 : {}),
@@ -1502,12 +1567,24 @@ export default function AuctionAssistant({
                           >
                             {isPlayerColumn ? (
                               <span style={playerIdentityStyle}>
-                                <span style={playerTeamStyle}>
-                                  {getTextValue(player, "team") || "-"}
+                                <span
+                                  aria-label={`Ruolo ${ruolo || "non disponibile"}`}
+                                  title={`Ruolo ${ruolo || "-"}`}
+                                  style={getPlayerRoleBadgeStyle(
+                                    getPlayerRole(player),
+                                  )}
+                                >
+                                  {ruolo || "-"}
                                 </span>
-                                <strong style={playerNameStyle}>
-                                  {getTextValue(player, "nome") || "-"}
-                                </strong>
+
+                                <span style={playerTextStyle}>
+                                  <span style={playerTeamStyle}>
+                                    {getTextValue(player, "team") || "-"}
+                                  </span>
+                                  <strong style={playerNameStyle}>
+                                    {getTextValue(player, "nome") || "-"}
+                                  </strong>
+                                </span>
                               </span>
                             ) : (
                               <PlayerCell
@@ -1759,10 +1836,50 @@ const topBarActionsStyle: CSSProperties = {
   gap: "8px",
 };
 
+const roleFilterFieldStyle: CSSProperties = {
+  minWidth: "270px",
+};
+
+const roleFilterButtonsStyle: CSSProperties = {
+  minHeight: "36px",
+  display: "flex",
+  alignItems: "center",
+  gap: "7px",
+  padding: 0,
+  background: "transparent",
+};
+
+const roleFilterButtonStyle: CSSProperties = {
+  width: "34px",
+  height: "34px",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 0,
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderRadius: "50%",
+  fontSize: "0.82rem",
+  fontWeight: 900,
+  lineHeight: 1,
+  cursor: "pointer",
+  transition:
+    "background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease",
+};
+
+const allRolesFilterButtonStyle: CSSProperties = {
+  width: "auto",
+  minWidth: "58px",
+  padding: "0 11px",
+  borderRadius: "999px",
+  fontSize: "0.78rem",
+};
+
 const filterBinButtonStyle: CSSProperties = {
   position: "relative",
-  minHeight: "40px",
-  padding: "8px 13px",
+  minHeight: "36px",
+  marginLeft: "auto",
+  padding: "6px 11px",
   border: 0,
   borderRadius: "7px",
   background: "#7f8c8d",
@@ -1791,10 +1908,10 @@ const binBadgeStyle: CSSProperties = {
 const filtersStyle: CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
-  gap: "12px",
+  gap: "10px",
   alignItems: "end",
-  padding: "12px",
-  marginBottom: "12px",
+  padding: "10px",
+  marginBottom: "10px",
   background: "#f8fafc",
   borderWidth: "1px",
   borderStyle: "solid",
@@ -1809,8 +1926,8 @@ const labelStyle: CSSProperties = {
 };
 
 const controlStyle: CSSProperties = {
-  minHeight: "40px",
-  padding: "8px 11px",
+  minHeight: "36px",
+  padding: "6px 9px",
   border: "2px solid #aebdca",
   borderRadius: "7px",
   background: "#ffffff",
@@ -1841,7 +1958,7 @@ const headerCellStyle: CSSProperties = {
   position: "sticky",
   top: 0,
   zIndex: 2,
-  padding: "10px",
+  padding: "6px 7px",
   borderWidth: "1px",
   borderStyle: "solid",
   borderColor: "#445b70",
@@ -1862,7 +1979,7 @@ const columnDragHandleStyle: CSSProperties = {
 };
 
 const cellStyle: CSSProperties = {
-  padding: "8px 10px",
+  padding: "3px 6px",
   borderWidth: "1px",
   borderStyle: "solid",
   borderColor: "#e1e6eb",
@@ -1870,34 +1987,55 @@ const cellStyle: CSSProperties = {
 };
 
 const playerColumnCellStyle: CSSProperties = {
-  minWidth: "130px",
+  minWidth: "145px",
   cursor: "help",
 };
 
 const playerIdentityStyle: CSSProperties = {
   display: "flex",
+  alignItems: "center",
+  gap: "7px",
+  lineHeight: 1.08,
+};
+
+const playerRoleBadgeStyle: CSSProperties = {
+  width: "24px",
+  height: "24px",
+  flexShrink: 0,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  borderRadius: "50%",
+  color: "#ffffff",
+  fontSize: "0.72rem",
+  fontWeight: 900,
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.45)",
+};
+
+const playerTextStyle: CSSProperties = {
+  minWidth: 0,
+  display: "flex",
   flexDirection: "column",
   gap: "1px",
-  lineHeight: 1.15,
 };
 
 const playerTeamStyle: CSSProperties = {
   color: "#71808d",
-  fontSize: "0.68rem",
+  fontSize: "0.62rem",
   fontWeight: 700,
   letterSpacing: "0.03em",
 };
 
 const playerNameStyle: CSSProperties = {
   color: "#243746",
-  fontSize: "0.84rem",
+  fontSize: "0.78rem",
 };
 
 const actionsHeaderCellStyle: CSSProperties = {
   left: 0,
   zIndex: 4,
-  width: "68px",
-  minWidth: "68px",
+  width: "60px",
+  minWidth: "60px",
   textAlign: "center",
 };
 
@@ -1906,9 +2044,9 @@ const actionCellStyle: CSSProperties = {
   position: "sticky",
   left: 0,
   zIndex: 1,
-  width: "68px",
-  minWidth: "68px",
-  padding: "4px",
+  width: "60px",
+  minWidth: "60px",
+  padding: "2px",
   background: "#fff",
   boxShadow: "2px 0 4px rgba(15, 23, 42, 0.05)",
 };
@@ -1917,12 +2055,12 @@ const actionButtonsStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  gap: "3px",
+  gap: "2px",
 };
 
 const buyIconButtonStyle: CSSProperties = {
-  width: "28px",
-  height: "28px",
+  width: "25px",
+  height: "24px",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -1940,7 +2078,7 @@ const buyIconButtonStyle: CSSProperties = {
 
 const deleteIconButtonStyle: CSSProperties = {
   width: "25px",
-  height: "28px",
+  height: "24px",
   padding: 0,
   border: "1px solid #d9dfe5",
   borderRadius: "5px",
