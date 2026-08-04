@@ -28,6 +28,14 @@ interface AuctionSettingsPanelProps {
   strategyColumns: string[];
 }
 
+function formatPercentage(value: number): string {
+  const roundedValue = Math.round(value * 10) / 10;
+
+  return `${roundedValue.toLocaleString("it-IT", {
+    maximumFractionDigits: 1,
+  })}%`;
+}
+
 type SettingsSection =
   | "general"
   | "squad"
@@ -105,6 +113,14 @@ export default function AuctionSettingsPanel({
   const unallocatedRoleBudget =
     settings.initialBudget - totalPlannedRoleBudget;
 
+  const totalPlannedRoleBudgetPercentage =
+    settings.initialBudget > 0
+      ? (totalPlannedRoleBudget / settings.initialBudget) * 100
+      : 0;
+
+  const unallocatedRoleBudgetPercentage =
+    100 - totalPlannedRoleBudgetPercentage;
+
   const totalPlayers = ROLE_ORDER.reduce(
     (total, role) => total + settings.roleLimits[role],
     0,
@@ -167,6 +183,53 @@ export default function AuctionSettingsPanel({
         [role]: value,
       },
     }));
+  }
+
+  function changeInitialBudget(value: number): void {
+    const nextInitialBudget =
+      Number.isFinite(value) && value > 0
+        ? Math.trunc(value)
+        : 1;
+
+    updateSettings((current) => ({
+      ...current,
+      initialBudget: nextInitialBudget,
+    }));
+  }
+
+  function changeRoleBudgetPercentage(
+    role: PlayerRole,
+    percentage: number,
+  ): void {
+    const normalizedPercentage =
+      Number.isFinite(percentage) && percentage >= 0
+        ? percentage
+        : 0;
+
+    changeRoleBudget(
+      role,
+      Math.max(
+        0,
+        Math.round(
+          (settings.initialBudget * normalizedPercentage) /
+            100,
+        ),
+      ),
+    );
+  }
+
+  function getRoleBudgetPercentage(
+    role: PlayerRole,
+  ): number {
+    if (settings.initialBudget <= 0) {
+      return 0;
+    }
+
+    return (
+      (settings.roleBudgets[role] /
+        settings.initialBudget) *
+      100
+    );
   }
 
   function toggleColumn(columnKey: string): void {
@@ -302,16 +365,9 @@ export default function AuctionSettingsPanel({
               step={1}
               value={settings.initialBudget}
               onChange={(event) => {
-                const value =
-                  event.currentTarget.valueAsNumber;
-
-                updateSettings((current) => ({
-                  ...current,
-                  initialBudget:
-                    Number.isFinite(value) && value > 0
-                      ? Math.trunc(value)
-                      : 1,
-                }));
+                changeInitialBudget(
+                  event.currentTarget.valueAsNumber,
+                );
               }}
               aria-label="Budget iniziale"
               style={numberControlStyle}
@@ -367,13 +423,18 @@ export default function AuctionSettingsPanel({
 
         {settings.recordPurchasePrice && (
           <section style={subsectionStyle}>
-            <div style={subsectionHeaderStyle}>
+            <div
+              className="fantawalter-budget-header"
+              style={subsectionHeaderStyle}
+            >
               <div>
                 <h3 style={subsectionTitleStyle}>
                   Budget per reparto
                 </h3>
                 <p style={subsectionDescriptionStyle}>
-                  Imposta un tetto di spesa per ciascun ruolo.
+                  Imposta il tetto di spesa in crediti o in
+                  percentuale del budget iniziale. I due valori si
+                  aggiornano automaticamente.
                 </p>
               </div>
 
@@ -385,41 +446,113 @@ export default function AuctionSettingsPanel({
                     : {}),
                 }}
               >
-                {totalPlannedRoleBudget}/{settings.initialBudget}
+                {totalPlannedRoleBudget}/
+                {settings.initialBudget} ·{" "}
+                {formatPercentage(
+                  totalPlannedRoleBudgetPercentage,
+                )}
+              </span>
+            </div>
+
+            <div
+              className="fantawalter-budget-columns-header"
+              aria-hidden="true"
+              style={roleBudgetColumnsHeaderStyle}
+            >
+              <span />
+              <span style={roleBudgetColumnLabelStyle}>
+                $ Crediti
+              </span>
+              <span style={roleBudgetColumnLabelStyle}>
+                % Budget
               </span>
             </div>
 
             <div style={roleBudgetListStyle}>
-              {ROLE_ORDER.map((role) => (
-                <label
-                  key={role}
-                  className="fantawalter-setting-row"
-                  style={compactSettingRowStyle}
-                >
-                  <span style={roleNameStyle}>
-                    {roleLabel(role)}
-                  </span>
+              {ROLE_ORDER.map((role) => {
+                const roleBudgetPercentage =
+                  getRoleBudgetPercentage(role);
 
-                  <input
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={settings.roleBudgets[role]}
-                    onChange={(event) => {
-                      const value =
-                        event.currentTarget.valueAsNumber;
+                return (
+                  <div
+                    key={role}
+                    className="fantawalter-role-budget-row"
+                    style={roleBudgetRowStyle}
+                  >
+                    <span style={roleNameStyle}>
+                      {roleLabel(role)}
+                    </span>
 
-                      changeRoleBudget(
-                        role,
-                        Number.isFinite(value)
-                          ? Math.max(0, Math.trunc(value))
-                          : 0,
-                      );
-                    }}
-                    style={numberControlStyle}
-                  />
-                </label>
-              ))}
+                    <label style={roleBudgetInputWrapStyle}>
+                      <span
+                        aria-hidden="true"
+                        style={roleBudgetPrefixStyle}
+                      >
+                        $
+                      </span>
+
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={settings.roleBudgets[role]}
+                        onChange={(event) => {
+                          const value =
+                            event.currentTarget.valueAsNumber;
+
+                          changeRoleBudget(
+                            role,
+                            Number.isFinite(value)
+                              ? Math.max(
+                                  0,
+                                  Math.trunc(value),
+                                )
+                              : 0,
+                          );
+                        }}
+                        aria-label={`Budget ${roleLabel(
+                          role,
+                        )} in crediti`}
+                        style={{
+                          ...roleBudgetNumberControlStyle,
+                          paddingLeft: "30px",
+                        }}
+                      />
+                    </label>
+
+                    <label style={roleBudgetInputWrapStyle}>
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.1}
+                        value={Number(
+                          roleBudgetPercentage.toFixed(1),
+                        )}
+                        onChange={(event) => {
+                          changeRoleBudgetPercentage(
+                            role,
+                            event.currentTarget.valueAsNumber,
+                          );
+                        }}
+                        aria-label={`Budget ${roleLabel(
+                          role,
+                        )} in percentuale`}
+                        style={{
+                          ...roleBudgetNumberControlStyle,
+                          paddingRight: "30px",
+                        }}
+                      />
+
+                      <span
+                        aria-hidden="true"
+                        style={roleBudgetSuffixStyle}
+                      >
+                        %
+                      </span>
+                    </label>
+                  </div>
+                );
+              })}
             </div>
 
             <div
@@ -434,12 +567,21 @@ export default function AuctionSettingsPanel({
                 <>
                   Restano{" "}
                   <strong>{unallocatedRoleBudget}</strong>{" "}
-                  crediti non assegnati.
+                  crediti non assegnati ·{" "}
+                  <strong>
+                    {formatPercentage(
+                      unallocatedRoleBudgetPercentage,
+                    )}
+                  </strong>{" "}
+                  del budget.
                 </>
               )}
 
               {unallocatedRoleBudget === 0 && (
-                <>Il budget è interamente assegnato.</>
+                <>
+                  Il budget è interamente assegnato ·{" "}
+                  <strong>100%</strong>.
+                </>
               )}
 
               {unallocatedRoleBudget < 0 && (
@@ -448,7 +590,13 @@ export default function AuctionSettingsPanel({
                   <strong>
                     {Math.abs(unallocatedRoleBudget)}
                   </strong>{" "}
-                  crediti.
+                  crediti ·{" "}
+                  <strong>
+                    {formatPercentage(
+                      totalPlannedRoleBudgetPercentage,
+                    )}
+                  </strong>{" "}
+                  assegnato.
                 </>
               )}
             </div>
@@ -610,7 +758,7 @@ export default function AuctionSettingsPanel({
           >
             <div style={settingCopyStyle}>
               <strong style={settingTitleStyle}>
-                Ripristina impostazioni predefinite
+                Ripristina impostazioni
               </strong>
               <span style={settingDescriptionStyle}>
                 Ripristina budget, limiti e colonne senza
@@ -623,7 +771,7 @@ export default function AuctionSettingsPanel({
               onClick={resetPreferences}
               style={secondaryButtonStyle}
             >
-             Ripristina impostazioni predefinite
+              Ripristina impostazioni
             </button>
           </section>
         </div>
@@ -682,6 +830,23 @@ export default function AuctionSettingsPanel({
           .fantawalter-setting-row input,
           .fantawalter-setting-row button {
             width: 100% !important;
+          }
+
+          .fantawalter-budget-header {
+            align-items: stretch !important;
+            flex-direction: column !important;
+          }
+
+          .fantawalter-role-budget-row {
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+          }
+
+          .fantawalter-budget-columns-header {
+            display: none !important;
+          }
+
+          .fantawalter-role-budget-row > span:first-child {
+            grid-column: 1 / -1 !important;
           }
 
           .fantawalter-settings-content {
@@ -1090,6 +1255,71 @@ const subsectionHeaderStyle: CSSProperties = {
   justifyContent: "space-between",
   gap: "14px",
   marginBottom: "10px",
+};
+
+const roleBudgetColumnsHeaderStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(150px, 1fr) 118px 118px",
+  gap: "10px",
+  alignItems: "center",
+  padding: "0 0 6px",
+};
+
+const roleBudgetColumnLabelStyle: CSSProperties = {
+  color: "#71808d",
+  fontSize: "0.72rem",
+  fontWeight: 800,
+  textAlign: "center",
+  textTransform: "uppercase",
+  letterSpacing: "0.03em",
+};
+
+const roleBudgetRowStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(150px, 1fr) 118px 118px",
+  gap: "10px",
+  alignItems: "center",
+  minHeight: "54px",
+  padding: "7px 0",
+  borderBottomWidth: "1px",
+  borderBottomStyle: "solid",
+  borderBottomColor: "#e3e9ee",
+};
+
+const roleBudgetInputWrapStyle: CSSProperties = {
+  position: "relative",
+  display: "block",
+  minWidth: 0,
+};
+
+const roleBudgetNumberControlStyle: CSSProperties = {
+  ...numberControlStyle,
+  width: "100%",
+  minWidth: 0,
+  textAlign: "right",
+};
+
+const roleBudgetPrefixStyle: CSSProperties = {
+  position: "absolute",
+  top: "50%",
+  left: "10px",
+  zIndex: 1,
+  transform: "translateY(-50%)",
+  color: "#52616d",
+  fontSize: "0.82rem",
+  fontWeight: 900,
+  pointerEvents: "none",
+};
+
+const roleBudgetSuffixStyle: CSSProperties = {
+  position: "absolute",
+  top: "50%",
+  right: "10px",
+  transform: "translateY(-50%)",
+  color: "#52616d",
+  fontSize: "0.82rem",
+  fontWeight: 900,
+  pointerEvents: "none",
 };
 
 const subsectionTitleStyle: CSSProperties = {
