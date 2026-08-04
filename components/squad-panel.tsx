@@ -712,8 +712,15 @@ export default function SquadPanel({
                 Az.
               </th>
               <th style={headerStyle}>R</th>
-              <th style={headerStyle}>Squadra</th>
-              <th style={headerStyle}>Nome</th>
+              <th
+                style={{
+                  ...headerStyle,
+                  ...playerHeaderStyle,
+                }}
+                title="Squadra e nome del giocatore"
+              >
+                Giocatore
+              </th>
               <th style={headerStyle} title="Titolarità">
                 TIT
               </th>
@@ -774,11 +781,15 @@ export default function SquadPanel({
                   >
                     {role ?? "-"}
                   </td>
-                  <td style={cellStyle}>
-                    {displayValue(player.team)}
-                  </td>
-                  <td style={cellStyle}>
-                    {displayValue(player.nome)}
+                  <td style={playerCellStyle}>
+                    <span style={playerIdentityStyle}>
+                      <span style={playerTeamStyle}>
+                        {displayValue(player.team)}
+                      </span>
+                      <strong style={playerNameStyle}>
+                        {displayValue(player.nome)}
+                      </strong>
+                    </span>
                   </td>
                   <td style={cellStyle}>
                     <StatBars value={player.titolarita} />
@@ -805,7 +816,7 @@ export default function SquadPanel({
             {sortedPlayers.length === 0 && (
               <tr>
                 <td
-                  colSpan={recordPurchasePrice ? 9 : 8}
+                  colSpan={recordPurchasePrice ? 8 : 7}
                   style={emptyCellStyle}
                 >
                   Nessun giocatore acquistato.
@@ -1215,7 +1226,7 @@ const tableWrapperStyle: CSSProperties = {
 
 const tableStyle: CSSProperties = {
   width: "100%",
-  minWidth: "630px",
+  minWidth: "540px",
   borderCollapse: "separate",
   borderSpacing: 0,
   background: "#fff",
@@ -1247,6 +1258,10 @@ const actionsHeaderStyle: CSSProperties = {
   textAlign: "center",
 };
 
+const playerHeaderStyle: CSSProperties = {
+  minWidth: "118px",
+};
+
 const cellStyle: CSSProperties = {
   padding: "4px 5px",
   borderWidth: "0 0 1px 1px",
@@ -1256,6 +1271,32 @@ const cellStyle: CSSProperties = {
   whiteSpace: "nowrap",
   fontSize: "0.76rem",
   lineHeight: 1.15,
+};
+
+const playerCellStyle: CSSProperties = {
+  ...cellStyle,
+  minWidth: "118px",
+  paddingTop: "3px",
+  paddingBottom: "3px",
+};
+
+const playerIdentityStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "1px",
+  lineHeight: 1.1,
+};
+
+const playerTeamStyle: CSSProperties = {
+  color: "#71808d",
+  fontSize: "0.62rem",
+  fontWeight: 700,
+  letterSpacing: "0.03em",
+};
+
+const playerNameStyle: CSSProperties = {
+  color: "#243746",
+  fontSize: "0.76rem",
 };
 
 const actionsCellStyle: CSSProperties = {

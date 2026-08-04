@@ -40,8 +40,7 @@ export const AUCTION_STORAGE_KEY =
 
 export const BASE_COLUMNS: ColumnDefinition[] = [
   { key: "ruolo", label: "R" },
-  { key: "team", label: "Squadra" },
-  { key: "nome", label: "Nome" },
+  { key: "giocatore", label: "Giocatore" },
   { key: "titolarita", label: "TIT" },
   { key: "affidabilita", label: "AFF" },
   { key: "integrita", label: "INT" },
@@ -147,12 +146,22 @@ function readColumnKeys(
     return [];
   }
 
+  /*
+   * Migrazione dalla precedente configurazione, nella quale
+   * Nome e Squadra erano due colonne separate.
+   */
+  const migratedKeys = value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) =>
+      item === "nome" || item === "team"
+        ? "giocatore"
+        : item,
+    );
+
   return Array.from(
     new Set(
-      value.filter(
-        (item): item is string =>
-          typeof item === "string" &&
-          allowedColumnKeySet.has(item),
+      migratedKeys.filter((item) =>
+        allowedColumnKeySet.has(item),
       ),
     ),
   );

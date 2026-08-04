@@ -83,8 +83,8 @@ const NOTE_ICON_LEGEND = [
 
 const COLUMN_DESCRIPTIONS: Record<string, string> = {
   ruolo: "Ruolo del giocatore: portiere, difensore, centrocampista o attaccante.",
-  team: "Squadra di appartenenza del giocatore.",
-  nome: "Nome del giocatore.",
+  giocatore:
+    "Mostra il nome del giocatore e, sopra, la sua squadra di appartenenza.",
   titolarita:
     "Titolarità (1–5): un valore di 4 o 5 indica un giocatore stabilmente titolare e difficilmente sostituibile nella propria squadra.",
   affidabilita:
@@ -259,6 +259,31 @@ function readBoolean(value: unknown): boolean | null {
   return typeof value === "boolean" ? value : null;
 }
 
+function readStoredColumnKeys(
+  value: unknown,
+  allowedColumnKeySet: Set<string>,
+): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const migratedKeys = value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) =>
+      item === "nome" || item === "team"
+        ? "giocatore"
+        : item,
+    );
+
+  return Array.from(
+    new Set(
+      migratedKeys.filter((item) =>
+        allowedColumnKeySet.has(item),
+      ),
+    ),
+  );
+}
+
 function readPurchasePrices(
   value: unknown,
   existingPlayerKeySet: Set<string>,
@@ -343,7 +368,7 @@ export default function AuctionAssistant({
   );
 
   const [sortColumn, setSortColumn] =
-    useState<string>("nome");
+    useState<string>("giocatore");
 
   const [sortDirection, setSortDirection] =
     useState<SortDirection>("asc");
@@ -530,14 +555,9 @@ export default function AuctionAssistant({
         }
 
         if (Array.isArray(parsedState.visibleColumnKeys)) {
-          const validVisibleColumns = Array.from(
-            new Set(
-              parsedState.visibleColumnKeys.filter(
-                (value): value is string =>
-                  typeof value === "string" &&
-                  allowedColumnKeySet.has(value),
-              ),
-            ),
+          const validVisibleColumns = readStoredColumnKeys(
+            parsedState.visibleColumnKeys,
+            allowedColumnKeySet,
           );
 
           if (validVisibleColumns.length > 0) {
@@ -546,17 +566,12 @@ export default function AuctionAssistant({
         }
 
         if (Array.isArray(parsedState.columnOrderKeys)) {
-          const validColumnOrder = Array.from(
-            new Set(
-              parsedState.columnOrderKeys.filter(
-                (value): value is string =>
-                  typeof value === "string" &&
-                  allowedColumnKeySet.has(value),
-              ),
+          setColumnOrderKeys(
+            readStoredColumnKeys(
+              parsedState.columnOrderKeys,
+              allowedColumnKeySet,
             ),
           );
-
-          setColumnOrderKeys(validColumnOrder);
         }
       } catch (error) {
         console.error(
@@ -787,8 +802,14 @@ export default function AuctionAssistant({
 
     return [...filteredPlayers].sort(
       (firstPlayer, secondPlayer) => {
-        const firstValue = firstPlayer[sortColumn];
-        const secondValue = secondPlayer[sortColumn];
+        const firstValue =
+          sortColumn === "giocatore"
+            ? getTextValue(firstPlayer, "nome")
+            : firstPlayer[sortColumn];
+        const secondValue =
+          sortColumn === "giocatore"
+            ? getTextValue(secondPlayer, "nome")
+            : secondPlayer[sortColumn];
 
         const firstIsEmpty = isEmptyValue(firstValue);
         const secondIsEmpty = isEmptyValue(secondValue);
@@ -1446,42 +1467,58 @@ export default function AuctionAssistant({
                         </div>
                       </td>
 
-                      {visibleColumns.map((column) => (
-                        <td
-                          key={column.key}
-                          onMouseEnter={
-                            column.key === "nome"
-                              ? (event) =>
-                                  showPlayerTooltip(event, player)
-                              : undefined
-                          }
-                          onMouseMove={
-                            column.key === "nome"
-                              ? updateTooltipPointer
-                              : undefined
-                          }
-                          onMouseLeave={
-                            column.key === "nome"
-                              ? hidePlayerTooltip
-                              : undefined
-                          }
-                          style={{
-                            ...cellStyle,
-                            ...(column.key === "ruolo"
-                              ? getRoleCellStyle(ruolo)
-                              : {}),
-                            ...(column.key === "nome"
-                              ? nameCellStyle
-                              : {}),
-                          }}
-                        >
-                          <PlayerCell
-                            player={player}
-                            columnName={column.key}
-                            initialBudget={initialBudget}
-                          />
-                        </td>
-                      ))}
+                      {visibleColumns.map((column) => {
+                        const isPlayerColumn =
+                          column.key === "giocatore";
+
+                        return (
+                          <td
+                            key={column.key}
+                            onMouseEnter={
+                              isPlayerColumn
+                                ? (event) =>
+                                    showPlayerTooltip(event, player)
+                                : undefined
+                            }
+                            onMouseMove={
+                              isPlayerColumn
+                                ? updateTooltipPointer
+                                : undefined
+                            }
+                            onMouseLeave={
+                              isPlayerColumn
+                                ? hidePlayerTooltip
+                                : undefined
+                            }
+                            style={{
+                              ...cellStyle,
+                              ...(column.key === "ruolo"
+                                ? getRoleCellStyle(ruolo)
+                                : {}),
+                              ...(isPlayerColumn
+                                ? playerColumnCellStyle
+                                : {}),
+                            }}
+                          >
+                            {isPlayerColumn ? (
+                              <span style={playerIdentityStyle}>
+                                <span style={playerTeamStyle}>
+                                  {getTextValue(player, "team") || "-"}
+                                </span>
+                                <strong style={playerNameStyle}>
+                                  {getTextValue(player, "nome") || "-"}
+                                </strong>
+                              </span>
+                            ) : (
+                              <PlayerCell
+                                player={player}
+                                columnName={column.key}
+                                initialBudget={initialBudget}
+                              />
+                            )}
+                          </td>
+                        );
+                      })}
                     </tr>
                   );
                 })}
@@ -1832,8 +1869,28 @@ const cellStyle: CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-const nameCellStyle: CSSProperties = {
+const playerColumnCellStyle: CSSProperties = {
+  minWidth: "130px",
   cursor: "help",
+};
+
+const playerIdentityStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "1px",
+  lineHeight: 1.15,
+};
+
+const playerTeamStyle: CSSProperties = {
+  color: "#71808d",
+  fontSize: "0.68rem",
+  fontWeight: 700,
+  letterSpacing: "0.03em",
+};
+
+const playerNameStyle: CSSProperties = {
+  color: "#243746",
+  fontSize: "0.84rem",
 };
 
 const actionsHeaderCellStyle: CSSProperties = {
