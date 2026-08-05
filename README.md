@@ -1,36 +1,69 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Pacchetto identità visiva — FantaConsigliere
 
-## Getting Started
+Ho scelto **FantaConsigliere** perché mantiene il significato di “Consigliere Fantacalcio”
+ma risulta più breve, riconoscibile e adatto a un prodotto.
 
-First, run the development server:
+## File inclusi
 
-```bash
+- `app/layout.tsx`
+  - elimina “Create Next App”
+  - imposta titolo, descrizione, Open Graph, Twitter e metadati applicazione
+  - mantiene l’inizializzazione del tema chiaro/scuro
+- `app/favicon.ico`
+  - icona della scheda del browser
+- `app/icon.png`
+  - icona generale dell’app
+- `app/apple-icon.png`
+  - icona per iPhone/iPad
+- `app/opengraph-image.png`
+  - anteprima quando il sito viene condiviso
+- `app/twitter-image.png`
+  - anteprima per social compatibili con Twitter Cards
+- `app/manifest.ts`
+  - nome e icone quando il sito viene installato come app
+- `app/robots.ts`
+  - indicazioni per i motori di ricerca
+- `app/sitemap.ts`
+  - sitemap delle pagine principali
+- `public/icons/*`
+  - icone PWA 192×192 e 512×512
+- `rimuovi-asset-default-next.ps1`
+  - elimina gli SVG dimostrativi generati da Create Next App, soltanto se presenti
+
+## Installazione
+
+Estrai il contenuto nella cartella principale del progetto mantenendo la struttura
+delle cartelle. Accetta la sostituzione di `app/layout.tsx` e degli eventuali file
+icona esistenti.
+
+Poi, dalla cartella del progetto:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\rimuovi-asset-default-next.ps1
+npm run lint
+npm run build
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Risultato
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Titolo scheda:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+`FantaConsigliere – Assistente per l’asta`
 
-## Learn More
+Nome applicazione:
 
-To learn more about Next.js, take a look at the following resources:
+`FantaConsigliere`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Descrizione:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+`Assistente strategico per l’asta del fantacalcio: confronta i giocatori, valuta i prezzi e costruisci una rosa più equilibrata.`
 
-## Deploy on Vercel
+## Nota sul dominio
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+I file utilizzano attualmente:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`https://fantawalter-app.vercel.app`
+
+Quando verrà deciso un dominio definitivo, andranno aggiornati `SITE_URL` in
+`app/layout.tsx`, `app/robots.ts` e `app/sitemap.ts`.
