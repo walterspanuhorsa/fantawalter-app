@@ -49,6 +49,7 @@ interface AuctionAssistantProps {
 }
 
 type SortDirection = "asc" | "desc";
+type ThemeMode = "light" | "dark";
 
 interface TooltipPointer {
   x: number;
@@ -57,10 +58,20 @@ interface TooltipPointer {
   viewportHeight: number;
 }
 
+const THEME_STORAGE_KEY = "fantawalter-theme-v1";
+
 const NON_SORTABLE_COLUMNS = new Set([
   "note",
   "percezione",
 ]);
+
+const RATING_COLUMN_KEYS = new Set([
+  "titolarita",
+  "affidabilita",
+  "integrita",
+]);
+
+const RATING_SCALE_STEPS = [1, 2, 3, 4, 5] as const;
 
 const NOTE_ICON_LEGEND = [
   "🏰 Modificatore",
@@ -363,6 +374,65 @@ function getReferenceColumnClassName(
   return undefined;
 }
 
+function getBodyCellClassName(
+  columnKey: string,
+  value: unknown,
+): string | undefined {
+  const classNames: string[] = [];
+  const referenceClassName =
+    getReferenceColumnClassName(columnKey);
+
+  if (referenceClassName) {
+    classNames.push(referenceClassName);
+  }
+
+  if (RATING_COLUMN_KEYS.has(columnKey)) {
+    const ratingValue = getRatingValue(value);
+
+    classNames.push(
+      "fantawalter-rating-cell",
+      ratingValue === null
+        ? "fantawalter-rating-empty"
+        : `fantawalter-rating-${ratingValue}`,
+    );
+  }
+
+  return classNames.length > 0
+    ? classNames.join(" ")
+    : undefined;
+}
+
+function getRatingValue(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const parsedValue =
+    typeof value === "number"
+      ? value
+      : Number(String(value).replace(",", "."));
+
+  if (!Number.isFinite(parsedValue)) {
+    return null;
+  }
+
+  const roundedValue = Math.round(parsedValue);
+
+  return roundedValue >= 1 && roundedValue <= 5
+    ? roundedValue
+    : null;
+}
+
+function getRatingDisplayValue(value: unknown): string {
+  const ratingValue = getRatingValue(value);
+
+  if (ratingValue !== null) {
+    return String(ratingValue);
+  }
+
+  return "-";
+}
+
 function readStoredColumnKeys(
   value: unknown,
   allowedColumnKeySet: Set<string>,
@@ -448,6 +518,8 @@ export default function AuctionAssistant({
 }: AuctionAssistantProps) {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  const [themeMode, setThemeMode] =
+    useState<ThemeMode>("light");
   const [roleFilter, setRoleFilter] = useState<PlayerRole | "">("");
   const [teamFilter, setTeamFilter] = useState("");
   const [nameSearch, setNameSearch] = useState("");
@@ -575,6 +647,28 @@ export default function AuctionAssistant({
       ),
     [initialPlayers],
   );
+
+  useEffect(() => {
+    const animationFrameId = window.requestAnimationFrame(() => {
+      const savedTheme = window.localStorage.getItem(
+        THEME_STORAGE_KEY,
+      );
+      const documentTheme =
+        document.documentElement.dataset.theme;
+      const resolvedTheme: ThemeMode =
+        documentTheme === "dark" || savedTheme === "dark"
+          ? "dark"
+          : "light";
+
+      setThemeMode(resolvedTheme);
+      document.documentElement.dataset.theme = resolvedTheme;
+      document.documentElement.style.colorScheme = resolvedTheme;
+    });
+
+    return () => {
+      window.cancelAnimationFrame(animationFrameId);
+    };
+  }, []);
 
   /*
    * Il ripristino da localStorage viene pianificato nel frame successivo:
@@ -952,6 +1046,27 @@ export default function AuctionAssistant({
     deletedPlayerKeySet,
   ]);
 
+  function toggleTheme(): void {
+    const nextTheme: ThemeMode =
+      themeMode === "light" ? "dark" : "light";
+
+    setThemeMode(nextTheme);
+    document.documentElement.dataset.theme = nextTheme;
+    document.documentElement.style.colorScheme = nextTheme;
+
+    try {
+      window.localStorage.setItem(
+        THEME_STORAGE_KEY,
+        nextTheme,
+      );
+    } catch (error) {
+      console.error(
+        "Impossibile salvare il tema grafico.",
+        error,
+      );
+    }
+  }
+
   function updateTooltipPointer(
     event: ReactMouseEvent<HTMLElement>,
   ): void {
@@ -1302,6 +1417,26 @@ export default function AuctionAssistant({
           <span>Configurazione</span>
         </Link>
 
+        <button
+          type="button"
+          onClick={toggleTheme}
+          aria-label={
+            themeMode === "light"
+              ? "Attiva il tema nero"
+              : "Attiva il tema chiaro"
+          }
+          title={
+            themeMode === "light"
+              ? "Passa al tema nero"
+              : "Passa al tema chiaro"
+          }
+          style={themeToggleButtonStyle}
+        >
+          <span aria-hidden="true">
+            {themeMode === "light" ? "☀" : "☾"}
+          </span>
+        </button>
+
         <div
           className="fantawalter-service-info"
           style={serviceInfoStyle}
@@ -1582,12 +1717,15 @@ export default function AuctionAssistant({
                       {visibleColumns.map((column) => {
                         const isPlayerColumn =
                           column.key === "giocatore";
+                        const isRatingColumn =
+                          RATING_COLUMN_KEYS.has(column.key);
 
                         return (
                           <td
                             key={column.key}
-                            className={getReferenceColumnClassName(
+                            className={getBodyCellClassName(
                               column.key,
+                              player[column.key],
                             )}
                             onMouseEnter={
                               isPlayerColumn
@@ -1632,6 +1770,40 @@ export default function AuctionAssistant({
                                     {getTextValue(player, "nome") || "-"}
                                   </strong>
                                 </span>
+                              </span>
+                            ) : isRatingColumn ? (
+                              <span
+                                className="fantawalter-rating-meter"
+                                aria-label={`${getRatingDisplayValue(
+                                  player[column.key],
+                                )} su 5`}
+                                style={ratingMeterStyle}
+                              >
+                                {RATING_SCALE_STEPS.map((step) => {
+                                  const ratingValue =
+                                    getRatingValue(
+                                      player[column.key],
+                                    );
+                                  const filled =
+                                    ratingValue !== null &&
+                                    step <= ratingValue;
+
+                                  return (
+                                    <span
+                                      key={step}
+                                      aria-hidden="true"
+                                      className={[
+                                        "fantawalter-rating-segment",
+                                        filled
+                                          ? "fantawalter-rating-segment-filled"
+                                          : "",
+                                      ]
+                                        .filter(Boolean)
+                                        .join(" ")}
+                                      style={ratingSegmentStyle}
+                                    />
+                                  );
+                                })}
                               </span>
                             ) : (
                               <PlayerCell
@@ -1875,6 +2047,26 @@ const settingsLinkStyle: CSSProperties = {
   boxShadow: "0 1px 2px rgba(15, 23, 42, 0.05)",
 };
 
+const themeToggleButtonStyle: CSSProperties = {
+  width: "36px",
+  height: "36px",
+  flexShrink: 0,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 0,
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "var(--fw-border-strong)",
+  borderRadius: "7px",
+  background: "var(--fw-panel-bg)",
+  color: "var(--fw-heading)",
+  fontSize: "1.05rem",
+  lineHeight: 1,
+  cursor: "pointer",
+  boxShadow: "0 1px 2px rgba(15, 23, 42, 0.05)",
+};
+
 const topBarActionsStyle: CSSProperties = {
   minWidth: 0,
   display: "flex",
@@ -2031,6 +2223,22 @@ const cellStyle: CSSProperties = {
   borderStyle: "solid",
   borderColor: "var(--fw-border-soft)",
   whiteSpace: "nowrap",
+};
+
+const ratingMeterStyle: CSSProperties = {
+  position: "relative",
+  width: "100%",
+  minWidth: "50px",
+  height: "20px",
+  display: "grid",
+  gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+  gap: "2px",
+  alignItems: "stretch",
+};
+
+const ratingSegmentStyle: CSSProperties = {
+  minWidth: 0,
+  borderRadius: "2px",
 };
 
 const playerColumnCellStyle: CSSProperties = {

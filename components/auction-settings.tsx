@@ -42,10 +42,6 @@ type SettingsSection =
   | "table"
   | "reset";
 
-type ThemeMode = "light" | "dark";
-
-const THEME_STORAGE_KEY = "fantawalter-theme-v1";
-
 const SETTINGS_SECTIONS: Array<{
   key: SettingsSection;
   label: string;
@@ -82,8 +78,6 @@ export default function AuctionSettingsPanel({
   const [storageReady, setStorageReady] = useState(false);
   const [activeSection, setActiveSection] =
     useState<SettingsSection>("general");
-  const [themeMode, setThemeMode] =
-    useState<ThemeMode>("light");
 
   const allColumns = useMemo(
     () => getAllColumns(strategyColumns),
@@ -143,16 +137,6 @@ export default function AuctionSettingsPanel({
         ),
       );
 
-      const savedTheme = window.localStorage.getItem(
-        THEME_STORAGE_KEY,
-      );
-      const resolvedTheme: ThemeMode =
-        savedTheme === "dark" ? "dark" : "light";
-
-      setThemeMode(resolvedTheme);
-      document.documentElement.dataset.theme = resolvedTheme;
-      document.documentElement.style.colorScheme = resolvedTheme;
-
       setStorageReady(true);
     });
 
@@ -168,24 +152,6 @@ export default function AuctionSettingsPanel({
 
     saveAuctionSettings(settings);
   }, [settings, storageReady]);
-
-  function changeTheme(nextTheme: ThemeMode): void {
-    setThemeMode(nextTheme);
-    document.documentElement.dataset.theme = nextTheme;
-    document.documentElement.style.colorScheme = nextTheme;
-
-    try {
-      window.localStorage.setItem(
-        THEME_STORAGE_KEY,
-        nextTheme,
-      );
-    } catch (error) {
-      console.error(
-        "Impossibile salvare il tema grafico.",
-        error,
-      );
-    }
-  }
 
   function updateSettings(
     updater: (current: AuctionSettings) => AuctionSettings,
@@ -414,54 +380,6 @@ export default function AuctionSettingsPanel({
               aria-label="Budget iniziale"
               style={numberControlStyle}
             />
-          </div>
-
-          <div className="fantawalter-setting-row" style={settingRowStyle}>
-            <div style={settingCopyStyle}>
-              <strong style={settingTitleStyle}>
-                Tema grafico
-              </strong>
-              <span style={settingDescriptionStyle}>
-                Scegli tra la versione chiara e la versione nera
-                dell’interfaccia.
-              </span>
-            </div>
-
-            <div
-              role="group"
-              aria-label="Tema grafico"
-              style={themeSelectorStyle}
-            >
-              <button
-                type="button"
-                aria-pressed={themeMode === "light"}
-                onClick={() => changeTheme("light")}
-                style={{
-                  ...themeButtonStyle,
-                  ...(themeMode === "light"
-                    ? themeButtonActiveStyle
-                    : {}),
-                }}
-              >
-                <span aria-hidden="true">☀</span>
-                Chiaro
-              </button>
-
-              <button
-                type="button"
-                aria-pressed={themeMode === "dark"}
-                onClick={() => changeTheme("dark")}
-                style={{
-                  ...themeButtonStyle,
-                  ...(themeMode === "dark"
-                    ? themeButtonActiveStyle
-                    : {}),
-                }}
-              >
-                <span aria-hidden="true">●</span>
-                Nero
-              </button>
-            </div>
           </div>
 
           <div className="fantawalter-setting-row" style={settingRowStyle}>
@@ -1239,16 +1157,6 @@ const settingRowStyle: CSSProperties = {
   borderBottomColor: "var(--fw-border-soft)",
 };
 
-const compactSettingRowStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "18px",
-  padding: "11px 0",
-  borderBottomWidth: "1px",
-  borderBottomStyle: "solid",
-  borderBottomColor: "var(--fw-border-soft)",
-};
 
 const settingCopyStyle: CSSProperties = {
   minWidth: 0,
@@ -1283,42 +1191,6 @@ const numberControlStyle: CSSProperties = {
   fontSize: "0.95rem",
   textAlign: "right",
   outline: "none",
-};
-
-const themeSelectorStyle: CSSProperties = {
-  display: "inline-flex",
-  gap: "4px",
-  padding: "4px",
-  borderWidth: "1px",
-  borderStyle: "solid",
-  borderColor: "var(--fw-border)",
-  borderRadius: "9px",
-  background: "var(--fw-panel-muted)",
-};
-
-const themeButtonStyle: CSSProperties = {
-  minWidth: "88px",
-  minHeight: "34px",
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: "7px",
-  padding: "0 11px",
-  borderWidth: "1px",
-  borderStyle: "solid",
-  borderColor: "transparent",
-  borderRadius: "6px",
-  background: "transparent",
-  color: "var(--fw-text-muted)",
-  fontWeight: 800,
-  cursor: "pointer",
-};
-
-const themeButtonActiveStyle: CSSProperties = {
-  borderColor: "var(--fw-accent-border)",
-  background: "var(--fw-panel-bg)",
-  color: "var(--fw-accent-text)",
-  boxShadow: "0 1px 4px rgba(0, 0, 0, 0.16)",
 };
 
 const switchButtonStyle: CSSProperties = {

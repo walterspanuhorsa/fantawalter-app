@@ -63,6 +63,18 @@ html[data-theme="light"] {
   --fw-pma-bg-hover: #e9e6f0;
   --fw-pma-head-bg: #4b4d63;
 
+  --fw-rating-1-bg: #c84d4d;
+  --fw-rating-1-fg: #ffffff;
+  --fw-rating-2-bg: #e78455;
+  --fw-rating-2-fg: #ffffff;
+  --fw-rating-3-bg: #e8b34e;
+  --fw-rating-3-fg: #ffffff;
+  --fw-rating-4-bg: #98c45e;
+  --fw-rating-4-fg: #ffffff;
+  --fw-rating-5-bg: #2f8f55;
+  --fw-rating-5-fg: #ffffff;
+  --fw-rating-number: #000000;
+
 }
 
 html[data-theme="dark"] {
@@ -128,6 +140,18 @@ html[data-theme="dark"] {
   --fw-pma-bg: #211f2c;
   --fw-pma-bg-hover: #2a2738;
   --fw-pma-head-bg: #3b3850;
+
+  --fw-rating-1-bg: #b94747;
+  --fw-rating-1-fg: #ffffff;
+  --fw-rating-2-bg: #d87850;
+  --fw-rating-2-fg: #ffffff;
+  --fw-rating-3-bg: #d8a543;
+  --fw-rating-3-fg: #ffffff;
+  --fw-rating-4-bg: #86b356;
+  --fw-rating-4-fg: #ffffff;
+  --fw-rating-5-bg: #287b4a;
+  --fw-rating-5-fg: #ffffff;
+  --fw-rating-number: #ffffff;
 
 }
 
@@ -196,5 +220,65 @@ a {
   .fantawalter-player-row:hover
   .fantawalter-pma-column {
   background-color: var(--fw-pma-bg-hover) !important;
+}
+
+/*
+ * TIT, AFF e INT: cinque segmenti uguali.
+ * I segmenti vengono riempiti da sinistra in base al valore.
+ */
+.fantawalter-table tbody .fantawalter-rating-cell {
+  min-width: 58px;
+  padding-left: 4px !important;
+  padding-right: 4px !important;
+  color: #ffffff !important;
+  text-align: center;
+}
+
+.fantawalter-table
+  tbody
+  .fantawalter-rating-segment {
+  background-color: transparent;
+}
+
+.fantawalter-table
+  tbody
+  .fantawalter-rating-1
+  .fantawalter-rating-segment-filled {
+  background-color: var(--fw-rating-1-bg);
+}
+
+.fantawalter-table
+  tbody
+  .fantawalter-rating-2
+  .fantawalter-rating-segment-filled {
+  background-color: var(--fw-rating-2-bg);
+}
+
+.fantawalter-table
+  tbody
+  .fantawalter-rating-3
+  .fantawalter-rating-segment-filled {
+  background-color: var(--fw-rating-3-bg);
+}
+
+.fantawalter-table
+  tbody
+  .fantawalter-rating-4
+  .fantawalter-rating-segment-filled {
+  background-color: var(--fw-rating-4-bg);
+}
+
+.fantawalter-table
+  tbody
+  .fantawalter-rating-5
+  .fantawalter-rating-segment-filled {
+  background-color: var(--fw-rating-5-bg);
+}
+
+.fantawalter-table
+  tbody
+  .fantawalter-rating-empty
+  .fantawalter-rating-segment {
+  opacity: 0.55;
 }
 

@@ -565,35 +565,8 @@ export default function PlayerTooltip({
         </div>
       </header>
 
-      <div style={detailsGridStyle}>
-        <DetailColumn title="Profilo" items={buildMainDetails(player)} />
-        <DetailColumn
-          title="Prezzi e strategie"
-          items={buildPriceDetails(
-            player,
-            strategyColumns,
-            initialBudget,
-          )}
-        />
-        <DetailColumn title="Statistiche" items={buildSeasonDetails(player)} />
-      </div>
-
-      {notes.length > 0 && (
-        <section style={fullWidthSectionStyle}>
-          <strong style={sectionTitleStyle}>Note</strong>
-          <p style={sectionTextStyle}>{notes.join(" · ")}</p>
-        </section>
-      )}
-
-      {hasValue(player.commento) && (
-        <section style={fullWidthSectionStyle}>
-          <strong style={sectionTitleStyle}>Commento</strong>
-          <p style={sectionTextStyle}>{String(player.commento)}</p>
-        </section>
-      )}
-
       <section style={alertsSectionStyle}>
-        <strong style={alertsTitleStyle}>Valutazione preventiva dell’acquisto</strong>
+        <strong style={alertsTitleStyle}>Suggerimenti per l’acquisto</strong>
 
         {purchaseAlerts.length === 0 ? (
           <p style={noAlertsStyle}>
@@ -619,6 +592,42 @@ export default function PlayerTooltip({
             ))}
           </div>
         )}
+      </section>
+
+      <section style={fullWidthSectionStyle}>
+        <strong style={sectionTitleStyle}>Statistiche</strong>
+
+        <div style={statisticsSectionContentStyle}>
+          <div style={detailsGridStyle}>
+            <DetailColumn title="Profilo" items={buildMainDetails(player)} />
+            <DetailColumn
+              title="Prezzi e strategie"
+              items={buildPriceDetails(
+                player,
+                strategyColumns,
+                initialBudget,
+              )}
+            />
+            <DetailColumn
+              title="Statistiche stagione"
+              items={buildSeasonDetails(player)}
+            />
+          </div>
+
+          {notes.length > 0 && (
+            <section style={subSectionStyle}>
+              <strong style={subSectionTitleStyle}>Note</strong>
+              <p style={sectionTextStyle}>{notes.join(" · ")}</p>
+            </section>
+          )}
+
+          {hasValue(player.commento) && (
+            <section style={subSectionStyle}>
+              <strong style={subSectionTitleStyle}>Commento</strong>
+              <p style={sectionTextStyle}>{String(player.commento)}</p>
+            </section>
+          )}
+        </div>
       </section>
     </aside>
   );
@@ -702,6 +711,21 @@ const fullWidthSectionStyle: CSSProperties = {
 
 const sectionTitleStyle: CSSProperties = {
   color: "#74b9ff",
+  display: "block",
+};
+
+const statisticsSectionContentStyle: CSSProperties = {
+  marginTop: "8px",
+};
+
+const subSectionStyle: CSSProperties = {
+  paddingTop: "10px",
+  marginTop: "10px",
+  borderTop: "1px solid rgba(255,255,255,0.1)",
+};
+
+const subSectionTitleStyle: CSSProperties = {
+  color: "#f6c344",
 };
 
 const sectionTextStyle: CSSProperties = {
@@ -710,9 +734,8 @@ const sectionTextStyle: CSSProperties = {
 };
 
 const alertsSectionStyle: CSSProperties = {
-  paddingTop: "10px",
-  marginTop: "10px",
-  borderTop: "1px solid rgba(255,255,255,0.18)",
+  paddingTop: 0,
+  marginTop: 0,
 };
 
 const alertsTitleStyle: CSSProperties = {
