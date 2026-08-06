@@ -546,10 +546,10 @@ export default function AuctionAssistant({
   );
 
   const [sortColumn, setSortColumn] =
-    useState<string>("giocatore");
+    useState<string>("media_strategie");
 
   const [sortDirection, setSortDirection] =
-    useState<SortDirection>("asc");
+    useState<SortDirection>("desc");
 
   const [visibleColumnKeys, setVisibleColumnKeys] =
     useState<string[]>(DEFAULT_VISIBLE_COLUMNS);
