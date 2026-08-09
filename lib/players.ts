@@ -34,6 +34,7 @@ const PAGE_SIZE = 1000;
 
 const STAT_COLUMN_MAP: Record<string, string> = {
   Ruolo: "ruolo",
+  Ruolo_mantra: "ruolo_mantra",
   Team: "team",
   Nome: "nome",
   Quo: "quo",
@@ -239,13 +240,17 @@ export function getPmaTableName(
   const leagueSize = resolveLeagueSize(
     preferences.leagueSize,
   );
+  if (mode === "mantra") {
+    return `pma${leagueSize}_mantra`;
+  }
+
   const modifier = resolveDefenseModifier(
     preferences.defenseModifier,
   )
     ? "mod"
     : "nomod";
 
-  return `pma${leagueSize}_${modifier}_${mode}`;
+  return `pma${leagueSize}_${modifier}_classic`;
 }
 
 export function getStrategiesTableName(
@@ -451,9 +456,13 @@ export async function loadPlayers(
             requestedPreferences.leagueSize,
           ),
           defenseModifier:
-            resolveDefenseModifier(
-              requestedPreferences.defenseModifier,
-            ),
+            resolvePlayerMode(
+              requestedPreferences.playerMode,
+            ) === "mantra"
+              ? false
+              : resolveDefenseModifier(
+                  requestedPreferences.defenseModifier,
+                ),
         };
 
   const [

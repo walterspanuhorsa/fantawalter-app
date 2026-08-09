@@ -78,6 +78,42 @@ const RATING_COLUMN_KEYS = new Set([
 
 const RATING_SCALE_STEPS = [1, 2, 3, 4, 5] as const;
 
+const MANTRA_ROLE_ORDER = [
+  "Por",
+  "Ds",
+  "Dc",
+  "B",
+  "Dd",
+  "E",
+  "M",
+  "C",
+  "W",
+  "T",
+  "A",
+  "Pc",
+] as const;
+
+type MantraRole = (typeof MANTRA_ROLE_ORDER)[number];
+
+const MANTRA_ROLE_COLORS: Record<MantraRole, string> = {
+  Por: "#d08617",
+
+  Ds: "#158e4f",
+  Dc: "#158e4f",
+  B: "#158e4f",
+  Dd: "#158e4f",
+
+  E: "#2b90e8",
+  M: "#2b90e8",
+  C: "#2b90e8",
+
+  W: "#5c2be8",
+  T: "#5c2be8",
+
+  A: "#a12d25",
+  Pc: "#a12d25",
+};
+
 const NOTE_ICON_LEGEND = [
   "🏰 Modificatore",
   "🧱 Imbattibilità",
@@ -240,6 +276,53 @@ function getRoleFilterButtonStyle(
       ? "0 0 0 2px #f8f9fa, 0 2px 7px rgba(15, 23, 42, 0.2)"
       : "0 2px 7px rgba(15, 23, 42, 0.16)",
   };
+}
+
+function getMantraRoleFilterButtonStyle(
+  role: string,
+  active: boolean,
+): CSSProperties {
+  const mantraRole = role as MantraRole;
+  const roleColor =
+    MANTRA_ROLE_COLORS[mantraRole] ?? "#7f8c8d";
+
+  if (!active) {
+    return {
+      background: "transparent",
+      borderColor: "var(--fw-border-strong)",
+      color: roleColor,
+      boxShadow: "none",
+    };
+  }
+
+  return {
+    background: roleColor,
+    borderColor: "#ffffff",
+    color: "#ffffff",
+    boxShadow:
+      "0 0 0 2px #f8f9fa, 0 2px 7px rgba(15, 23, 42, 0.2)",
+  };
+}
+
+function getMantraRoles(value: string): MantraRole[] {
+  const found = new Set<MantraRole>();
+
+  for (const rawRole of value.split(";")) {
+    const normalized = rawRole.trim().toLocaleLowerCase("it");
+
+    const role = MANTRA_ROLE_ORDER.find(
+      (candidate) =>
+        candidate.toLocaleLowerCase("it") === normalized,
+    );
+
+    if (role) {
+      found.add(role);
+    }
+  }
+
+  return MANTRA_ROLE_ORDER.filter((role) =>
+    found.has(role),
+  );
 }
 
 function getPlayerRoleBadgeStyle(
@@ -528,7 +611,7 @@ export default function AuctionAssistant({
 
   const [themeMode, setThemeMode] =
     useState<ThemeMode>("light");
-  const [roleFilter, setRoleFilter] = useState<PlayerRole | "">("");
+  const [roleFilter, setRoleFilter] = useState<string>("");
   const [teamFilter, setTeamFilter] = useState("");
   const [nameSearch, setNameSearch] = useState("");
   const [initialBudget, setInitialBudget] = useState(500);
@@ -867,19 +950,24 @@ export default function AuctionAssistant({
     [groupedOrderedColumns, visibleColumnKeys],
   );
 
-  const teams = useMemo(() => {
-    return Array.from(
-      new Set(
-        initialPlayers
-          .map((player) => getTextValue(player, "team"))
-          .filter(Boolean),
-      ),
-    ).sort((firstTeam, secondTeam) =>
-      firstTeam.localeCompare(secondTeam, "it", {
-        sensitivity: "base",
-      }),
-    );
-  }, [initialPlayers]);
+const mantraRoles = useMemo(
+  () => [...MANTRA_ROLE_ORDER],
+  [],
+);
+
+const teams = useMemo(() => {
+  return Array.from(
+    new Set(
+      initialPlayers
+        .map((player) => getTextValue(player, "team"))
+        .filter(Boolean),
+    ),
+  ).sort((firstTeam, secondTeam) =>
+    firstTeam.localeCompare(secondTeam, "it", {
+      sensitivity: "base",
+    }),
+  );
+}, [initialPlayers]);
 
   const purchasedPlayerKeySet = useMemo(
     () => new Set(purchasedPlayerKeys),
@@ -980,14 +1068,31 @@ export default function AuctionAssistant({
       }
 
       const ruolo = getTextValue(player, "ruolo");
+      const ruoloMantra = getTextValue(
+        player,
+        "ruolo_mantra",
+      );
+      const displayedRole =
+        playerMode === "mantra"
+          ? ruoloMantra
+          : ruolo;
       const team = getTextValue(player, "team");
       const nome = getTextValue(player, "nome");
       const searchableText = normalizeSearchText(
-        `${nome} ${team} ${ruolo}`,
+        `${nome} ${team} ${displayedRole}`,
       );
 
+      const roleMatches =
+        !roleFilter ||
+        (playerMode === "mantra"
+          ? ruoloMantra
+              .split(";")
+              .map((value) => value.trim())
+              .includes(roleFilter)
+          : ruolo === roleFilter);
+
       return (
-        (!roleFilter || ruolo === roleFilter) &&
+        roleMatches &&
         (!teamFilter || team === teamFilter) &&
         (!normalizedSearch ||
           searchableText.includes(normalizedSearch))
@@ -1045,6 +1150,7 @@ export default function AuctionAssistant({
     );
   }, [
     initialPlayers,
+    playerMode,
     roleFilter,
     teamFilter,
     nameSearch,
@@ -1423,6 +1529,7 @@ export default function AuctionAssistant({
           <span aria-hidden="true">⚙️</span>
           <span>Configurazione</span>
         </Link>
+		
 
         <button
           type="button"
@@ -1490,6 +1597,11 @@ export default function AuctionAssistant({
           className="fantawalter-top-actions"
           style={topBarActionsStyle}
         >
+		
+		<Link href="/guida" style={settingsLinkStyle}>
+  <span aria-hidden="true">❓</span>
+  <span>Guida</span>
+</Link>
           <PayPalSupportButton />
         </div>
       </section>
@@ -1528,23 +1640,42 @@ export default function AuctionAssistant({
                   Tutti
                 </button>
 
-                {ROLE_ORDER.map((role) => {
+                {(playerMode === "mantra"
+                  ? mantraRoles
+                  : ROLE_ORDER
+                ).map((role) => {
                   const active = roleFilter === role;
+                  const classicRole =
+                    playerMode === "classic"
+                      ? (role as PlayerRole)
+                      : null;
 
                   return (
                     <button
                       key={role}
                       type="button"
                       aria-pressed={active}
-                      title={ROLE_PLURAL_LABELS[role]}
+                      title={
+                        classicRole
+                          ? ROLE_PLURAL_LABELS[classicRole]
+                          : `Ruolo Mantra ${role}`
+                      }
                       onClick={() => setRoleFilter(role)}
-                      style={{
-                        ...roleFilterButtonStyle,
-                        ...getRoleFilterButtonStyle(
-                          role,
-                          active,
-                        ),
-                      }}
+                    style={{
+					  ...roleFilterButtonStyle,
+					  ...(playerMode === "mantra"
+						? mantraRoleFilterButtonStyle
+						: {}),
+					  ...(playerMode === "mantra"
+						? getMantraRoleFilterButtonStyle(
+							role,
+							active,
+						  )
+						: getRoleFilterButtonStyle(
+							classicRole,
+							active,
+						  )),
+					}}
                     >
                       {role}
                     </button>
@@ -1705,7 +1836,16 @@ export default function AuctionAssistant({
 
               <tbody>
                 {displayedPlayers.map((player) => {
-                  const ruolo = getTextValue(player, "ruolo");
+                  const ruolo =
+                    playerMode === "mantra"
+                      ? getTextValue(
+                          player,
+                          "ruolo_mantra",
+                        )
+                      : getTextValue(
+                          player,
+                          "ruolo",
+                        );
                   const rowKey = getPlayerKey(player);
 
                   return (
@@ -1778,15 +1918,36 @@ export default function AuctionAssistant({
                           >
                             {isPlayerColumn ? (
                               <span style={playerIdentityStyle}>
-                                <span
-                                  aria-label={`Ruolo ${ruolo || "non disponibile"}`}
-                                  title={`Ruolo ${ruolo || "-"}`}
-                                  style={getPlayerRoleBadgeStyle(
-                                    getPlayerRole(player),
-                                  )}
-                                >
-                                  {ruolo || "-"}
-                                </span>
+{playerMode === "mantra" ? (
+  <span
+    aria-label={`Ruoli ${ruolo || "non disponibili"}`}
+    title={`Ruoli ${ruolo || "-"}`}
+    style={mantraRoleStackStyle}
+  >
+    {getMantraRoles(ruolo).map((mantraRole) => (
+      <span
+        key={mantraRole}
+        style={{
+          ...mantraPlayerRoleBadgeStyle,
+          background:
+            MANTRA_ROLE_COLORS[mantraRole],
+        }}
+      >
+        {mantraRole}
+      </span>
+    ))}
+  </span>
+) : (
+  <span
+    aria-label={`Ruolo ${ruolo || "non disponibile"}`}
+    title={`Ruolo ${ruolo || "-"}`}
+    style={getPlayerRoleBadgeStyle(
+      getPlayerRole(player),
+    )}
+  >
+    {ruolo || "-"}
+  </span>
+)}
 
                                 <span style={playerTextStyle}>
                                   <span style={playerTeamStyle}>
@@ -2148,6 +2309,12 @@ const roleFilterButtonStyle: CSSProperties = {
     "background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease",
 };
 
+const mantraRoleFilterButtonStyle: CSSProperties = {
+  width: "42px",
+  height: "42px",
+  fontSize: "0.78rem",
+};
+
 const allRolesFilterButtonStyle: CSSProperties = {
   width: "auto",
   minWidth: "58px",
@@ -2308,6 +2475,32 @@ const playerRoleBadgeStyle: CSSProperties = {
   fontSize: "0.72rem",
   fontWeight: 900,
   boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.45)",
+};
+
+const mantraRoleStackStyle: CSSProperties = {
+  width: "17px",
+  flexShrink: 0,
+  display: "inline-flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "1px",
+};
+
+const mantraPlayerRoleBadgeStyle: CSSProperties = {
+  width: "16px",
+  height: "16px",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  borderRadius: "50%",
+  color: "#ffffff",
+  fontSize: "0.48rem",
+  fontWeight: 900,
+  lineHeight: 1,
+  letterSpacing: "-0.02em",
+  boxShadow:
+    "inset 0 0 0 1px rgba(255,255,255,0.48)",
 };
 
 const playerTextStyle: CSSProperties = {

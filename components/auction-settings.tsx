@@ -224,6 +224,10 @@ export default function AuctionSettingsPanel({
     const nextSettings: AuctionSettings = {
       ...settings,
       playerMode: nextMode,
+      defenseModifier:
+        nextMode === "mantra"
+          ? false
+          : settings.defenseModifier,
 
       /*
        * Le colonne dei creator dipendono da Classic/Mantra.
@@ -251,6 +255,14 @@ export default function AuctionSettingsPanel({
       PLAYER_MODE_COOKIE,
       nextMode,
     );
+
+    if (nextMode === "mantra") {
+      writeCookie(
+        DEFENSE_MODIFIER_COOKIE,
+        "false",
+      );
+    }
+
     saveAuctionSettings(nextSettings);
 
     /*
@@ -280,6 +292,7 @@ export default function AuctionSettingsPanel({
       String(nextLeagueSize),
     );
     saveAuctionSettings(nextSettings);
+    router.refresh();
   }
 
 
@@ -622,6 +635,7 @@ export default function AuctionSettingsPanel({
             </div>
           </section>
 
+          {settings.playerMode === "classic" && (
           <section style={settingBlockStyle}>
             <div style={settingCopyStyle}>
               <strong style={settingTitleStyle}>
@@ -674,6 +688,7 @@ export default function AuctionSettingsPanel({
               </button>
             </div>
           </section>
+          )}
 
           <section style={settingBlockStyle}>
             <div style={settingCopyStyle}>
