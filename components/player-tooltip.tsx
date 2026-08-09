@@ -1,5 +1,7 @@
 "use client";
 
+// TOOLTIP_LAYOUT_V3: statistiche a sinistra, prezzi/strategie suddivisi in colonne da massimo 13 righe.
+
 import type { CSSProperties } from "react";
 
 import {
@@ -80,6 +82,7 @@ function plainValue(value: unknown): string {
 function formatStrategyLabel(columnName: string): string {
   return columnName
     .replace(/^strategia_/, "")
+    .replace(/_(classic|mantra)$/i, "")
     .split("_")
     .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
@@ -120,7 +123,10 @@ function numericValue(value: unknown): number {
   return parseNumericValue(value) ?? 0;
 }
 
-function calculateAverage(players: PlayerRow[], columnName: string): number {
+function calculateAverage(
+  players: PlayerRow[],
+  columnName: string,
+): number {
   if (players.length === 0) {
     return 0;
   }
@@ -175,42 +181,56 @@ function getPotentialPurchaseAlerts(
       parseNumericValue(playerToAdd.pma);
 
     if (expectedPercentage !== null && expectedPercentage > 0) {
-      const expectedPrice = calculateCredits(expectedPercentage, initialBudget);
+      const expectedPrice = calculateCredits(
+        expectedPercentage,
+        initialBudget,
+      );
 
-      const currentRoleSpent = purchasedPlayers.reduce((total, purchasedPlayer) => {
-        if (getPlayerRole(purchasedPlayer) !== role) {
-          return total;
-        }
+      const currentRoleSpent = purchasedPlayers.reduce(
+        (total, purchasedPlayer) => {
+          if (getPlayerRole(purchasedPlayer) !== role) {
+            return total;
+          }
 
-        return total + (purchasePrices[getPlayerKey(purchasedPlayer)] ?? 0);
-      }, 0);
+          return (
+            total +
+            (purchasePrices[getPlayerKey(purchasedPlayer)] ?? 0)
+          );
+        },
+        0,
+      );
 
-      const projectedRoleSpent = currentRoleSpent + expectedPrice;
+      const projectedRoleSpent =
+        currentRoleSpent + expectedPrice;
       const plannedRoleBudget = roleBudgets[role];
 
       if (projectedRoleSpent > plannedRoleBudget) {
-        const projectedOverrun = projectedRoleSpent - plannedRoleBudget;
+        const projectedOverrun =
+          projectedRoleSpent - plannedRoleBudget;
         const roleLabel = ROLE_PLURAL_LABELS[role];
 
         if (currentRoleSpent > plannedRoleBudget) {
-          const currentOverrun = currentRoleSpent - plannedRoleBudget;
+          const currentOverrun =
+            currentRoleSpent - plannedRoleBudget;
 
           alerts.push({
             level: "red",
             text:
-              `Il budget previsto per i ${roleLabel} è già stato superato di ` +
-              `${currentOverrun} crediti. Con questo acquisto al prezzo stimato ` +
-              `dalla Media (${expectedPrice} crediti), lo scostamento salirebbe ` +
+              `Il budget previsto per i ${roleLabel} è già stato ` +
+              `superato di ${currentOverrun} crediti. Acquistando ` +
+              `questo giocatore al prezzo stimato dalla Media ` +
+              `(${expectedPrice} crediti), lo scostamento salirebbe ` +
               `a ${projectedOverrun} crediti.`,
           });
         } else {
           alerts.push({
             level: "red",
             text:
-              `Con questo acquisto al prezzo stimato dalla Media ` +
-              `(${expectedPrice} crediti), la spesa per i ${roleLabel} ` +
-              `salirebbe a ${projectedRoleSpent} crediti, superando di ` +
-              `${projectedOverrun} il budget previsto di ${plannedRoleBudget} crediti.`,
+              `Acquistando questo giocatore al prezzo stimato ` +
+              `dalla Media (${expectedPrice} crediti), la spesa per ` +
+              `i ${roleLabel} salirebbe a ${projectedRoleSpent} ` +
+              `crediti, superando di ${projectedOverrun} il budget ` +
+              `previsto di ${plannedRoleBudget} crediti.`,
           });
         }
       }
@@ -222,28 +242,43 @@ function getPotentialPurchaseAlerts(
   );
 
   if (temporaryRolePlayers.length >= 2) {
-    const averageTitolarita = calculateAverage(temporaryRolePlayers, "titolarita");
-    const averageAffidabilita = calculateAverage(temporaryRolePlayers, "affidabilita");
-    const averageIntegrita = calculateAverage(temporaryRolePlayers, "integrita");
+    const averageTitolarita = calculateAverage(
+      temporaryRolePlayers,
+      "titolarita",
+    );
+    const averageAffidabilita = calculateAverage(
+      temporaryRolePlayers,
+      "affidabilita",
+    );
+    const averageIntegrita = calculateAverage(
+      temporaryRolePlayers,
+      "integrita",
+    );
 
     if (averageTitolarita < 3) {
       alerts.push({
         level: "red",
-        text: `La media TIT dei ${role} scenderebbe a ${averageTitolarita.toFixed(2)}.`,
+        text:
+          `La media TIT dei ${role} scenderebbe a ` +
+          `${averageTitolarita.toFixed(2)}.`,
       });
     }
 
     if (averageAffidabilita < 3) {
       alerts.push({
         level: "red",
-        text: `La media AFF dei ${role} scenderebbe a ${averageAffidabilita.toFixed(2)}.`,
+        text:
+          `La media AFF dei ${role} scenderebbe a ` +
+          `${averageAffidabilita.toFixed(2)}.`,
       });
     }
 
     if (averageIntegrita < 3) {
       alerts.push({
         level: "red",
-        text: `La media INT dei ${role} scenderebbe a ${averageIntegrita.toFixed(2)}.`,
+        text:
+          `La media INT dei ${role} scenderebbe a ` +
+          `${averageIntegrita.toFixed(2)}.`,
       });
     }
   }
@@ -258,12 +293,16 @@ function getPotentialPurchaseAlerts(
     if (teamCountInRole >= 3) {
       alerts.push({
         level: "red",
-        text: `Avresti ${teamCountInRole} giocatori del ${playerTeam} nel ruolo ${role}.`,
+        text:
+          `Avresti ${teamCountInRole} giocatori del ${playerTeam} ` +
+          `nel ruolo ${role}.`,
       });
     } else if (teamCountInRole === 2) {
       alerts.push({
         level: "orange",
-        text: `Avresti ${teamCountInRole} giocatori del ${playerTeam} nel ruolo ${role}.`,
+        text:
+          `Avresti ${teamCountInRole} giocatori del ${playerTeam} ` +
+          `nel ruolo ${role}.`,
       });
     }
   }
@@ -294,7 +333,9 @@ function getPotentialPurchaseAlerts(
   );
 
   if (temporarySquad.length >= 4) {
-    const totalFromSameTeam = playerTeam ? totalTeamCount[playerTeam] ?? 0 : 0;
+    const totalFromSameTeam = playerTeam
+      ? totalTeamCount[playerTeam] ?? 0
+      : 0;
 
     if (totalFromSameTeam >= 5) {
       alerts.push({
@@ -316,17 +357,23 @@ function getPotentialPurchaseAlerts(
     if (coppaAfricaPlayers.length >= 4) {
       alerts.push({
         level: "red",
-        text: `Avresti ${coppaAfricaPlayers.length} giocatori impegnati in Coppa d'Africa.`,
+        text:
+          `Avresti ${coppaAfricaPlayers.length} giocatori ` +
+          `impegnati in Coppa d'Africa.`,
       });
     } else if (coppaAfricaPlayers.length === 3) {
       alerts.push({
         level: "orange",
-        text: `Avresti ${coppaAfricaPlayers.length} giocatori impegnati in Coppa d'Africa.`,
+        text:
+          `Avresti ${coppaAfricaPlayers.length} giocatori ` +
+          `impegnati in Coppa d'Africa.`,
       });
     } else if (coppaAfricaPlayers.length === 2) {
       alerts.push({
         level: "yellow",
-        text: `Avresti ${coppaAfricaPlayers.length} giocatori impegnati in Coppa d'Africa.`,
+        text:
+          `Avresti ${coppaAfricaPlayers.length} giocatori ` +
+          `impegnati in Coppa d'Africa.`,
       });
     }
   }
@@ -339,7 +386,9 @@ function getPotentialPurchaseAlerts(
     if (coppaAfricaInRole >= 2) {
       alerts.push({
         level: "orange",
-        text: `Avresti ${coppaAfricaInRole} giocatori impegnati in Coppa d'Africa nel ruolo ${role}.`,
+        text:
+          `Avresti ${coppaAfricaInRole} giocatori impegnati in ` +
+          `Coppa d'Africa nel ruolo ${role}.`,
       });
     }
   }
@@ -355,7 +404,11 @@ function buildPriceDetails(
   const details: DetailItem[] = [
     {
       label: "Media",
-      value: formatPlayerValue(player.media_strategie, "media_strategie", initialBudget),
+      value: formatPlayerValue(
+        player.media_strategie,
+        "media_strategie",
+        initialBudget,
+      ),
     },
     {
       label: "PMA",
@@ -366,7 +419,11 @@ function buildPriceDetails(
   for (const columnName of strategyColumns) {
     details.push({
       label: formatStrategyLabel(columnName),
-      value: formatPlayerValue(player[columnName], columnName, initialBudget),
+      value: formatPlayerValue(
+        player[columnName],
+        columnName,
+        initialBudget,
+      ),
     });
   }
 
@@ -398,25 +455,17 @@ function buildSeasonDetails(player: PlayerRow): DetailItem[] {
           { label: "Rigori sbagliati", value: plainValue(player.rig__sbagliati) },
         ];
 
-  const advancedSummary: DetailItem[] = [
+  const fantasyAverageDetails: DetailItem[] = [
     { label: "MV", value: plainValue(player.mv) },
     { label: "FMV", value: plainValue(player.fmv) },
     { label: "FMV Exp", value: plainValue(player.fmv_exp) },
   ];
 
-  return [...commonDetails, ...roleSpecificDetails, ...advancedSummary].filter(
-    (item) => item.value !== "-",
-  );
-}
-
-function chunkItems<T>(items: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-
-  for (let index = 0; index < items.length; index += size) {
-    chunks.push(items.slice(index, index + size));
-  }
-
-  return chunks;
+  return [
+    ...commonDetails,
+    ...roleSpecificDetails,
+    ...fantasyAverageDetails,
+  ].filter((item) => item.value !== "-");
 }
 
 function DetailColumn({
@@ -435,7 +484,8 @@ function DetailColumn({
       ) : (
         items.map((item) => (
           <p key={item.label} style={detailLineStyle}>
-            <strong style={detailLabelStyle}>{item.label}:</strong> {item.value}
+            <strong style={detailLabelStyle}>{item.label}:</strong>{" "}
+            {item.value}
           </p>
         ))
       )}
@@ -484,19 +534,38 @@ export default function PlayerTooltip({
     roleBudgets,
   );
 
+  const priceAndStrategyDetails = buildPriceDetails(
+    player,
+    strategyColumns,
+    initialBudget,
+  );
+
+  const STRATEGY_ROWS_PER_COLUMN = 13;
+
+  const strategyDetailColumns: DetailItem[][] = [];
+
+  for (
+    let index = 0;
+    index < priceAndStrategyDetails.length;
+    index += STRATEGY_ROWS_PER_COLUMN
+  ) {
+    strategyDetailColumns.push(
+      priceAndStrategyDetails.slice(
+        index,
+        index + STRATEGY_ROWS_PER_COLUMN,
+      ),
+    );
+  }
+
   const horizontalPosition: CSSProperties =
     pointerX > viewportWidth / 2
-      ? { right: Math.max(viewportWidth - pointerX + 12, 12) }
-      : { left: Math.max(pointerX + 12, 12) };
+      ? { right: Math.max(viewportWidth - pointerX + 14, 14) }
+      : { left: Math.max(pointerX + 14, 14) };
 
   const verticalPosition: CSSProperties =
     pointerY > viewportHeight / 2
-      ? { bottom: Math.max(viewportHeight - pointerY + 12, 12) }
-      : { top: Math.max(pointerY + 12, 12) };
-
-  const seasonItems = buildSeasonDetails(player);
-  const priceItems = buildPriceDetails(player, strategyColumns, initialBudget);
-  const priceColumns = chunkItems(priceItems, 13);
+      ? { bottom: Math.max(viewportHeight - pointerY + 14, 14) }
+      : { top: Math.max(pointerY + 14, 14) };
 
   return (
     <aside
@@ -507,66 +576,76 @@ export default function PlayerTooltip({
         ...verticalPosition,
       }}
     >
-      <header style={headerRowStyle}>
-        <div style={identityBlockStyle}>
+      <header style={tooltipHeaderStyle}>
+        <div>
           <strong style={playerNameStyle}>{plainValue(player.nome)}</strong>
           <div style={playerSubtitleStyle}>
             {role ? ROLE_LABELS[role] : plainValue(player.ruolo)}
             {hasValue(player.team) ? ` · ${String(player.team)}` : ""}
           </div>
         </div>
-
-        <section style={suggestionsInlineStyle}>
-          <strong style={alertsTitleStyle}>Suggerimenti per l’acquisto</strong>
-
-          {purchaseAlerts.length === 0 ? (
-            <p style={noAlertsStyle}>Nessun avviso strategico rilevato con la rosa attuale.</p>
-          ) : (
-            <div style={alertsListStyle}>
-              {purchaseAlerts.map((alert, index) => (
-                <p
-                  key={`${alert.text}-${index}`}
-                  style={{
-                    ...alertLineStyle,
-                    ...(alert.critical ? criticalAlertLineStyle : {}),
-                  }}
-                >
-                  <span aria-hidden="true">{getAlertIcon(alert.level)}</span> {alert.text}
-                </p>
-              ))}
-            </div>
-          )}
-        </section>
       </header>
 
-      <section style={mainSectionStyle}>
-        <strong style={sectionTitleStyle}>Statistiche</strong>
+      <section style={alertsSectionStyle}>
+        <strong style={alertsTitleStyle}>Suggerimenti per l’acquisto</strong>
 
-        <div style={statsGridStyle}>
-          <DetailColumn title="Statistiche stagione" items={seasonItems} />
+        {purchaseAlerts.length === 0 ? (
+          <p style={noAlertsStyle}>
+            Nessun avviso strategico rilevato con la rosa attuale.
+          </p>
+        ) : (
+          <div style={alertsListStyle}>
+            {purchaseAlerts.map((alert, index) => (
+              <p
+                key={`${alert.text}-${index}`}
+                style={{
+                  ...alertLineStyle,
+                  ...(alert.critical
+                    ? criticalAlertLineStyle
+                    : {}),
+                }}
+              >
+                <span aria-hidden="true">
+                  {getAlertIcon(alert.level)}
+                </span>{" "}
+                {alert.text}
+              </p>
+            ))}
+          </div>
+        )}
+      </section>
 
-          {priceColumns.map((items, index) => (
+      <section style={fullWidthSectionStyle}>
+        <div style={statisticsSectionContentStyle}>
+          <div style={detailsGridStyle}>
             <DetailColumn
-              key={`prices-${index}`}
-              title={index === 0 ? "Prezzi e strategie" : "Strategie"}
-              items={items}
+              title="Statistiche"
+              items={buildSeasonDetails(player)}
             />
-          ))}
+
+            {strategyDetailColumns.map((items, columnIndex) => (
+              <DetailColumn
+                key={`strategie-${columnIndex}`}
+                title="Strategie"
+                items={items}
+              />
+            ))}
+          </div>
+
+          {notes.length > 0 && (
+            <section style={subSectionStyle}>
+              <strong style={subSectionTitleStyle}>Note</strong>
+              <p style={sectionTextStyle}>{notes.join(" · ")}</p>
+            </section>
+          )}
+
+          {hasValue(player.commento) && (
+            <section style={subSectionStyle}>
+              <strong style={subSectionTitleStyle}>Commento</strong>
+              <p style={sectionTextStyle}>{String(player.commento)}</p>
+            </section>
+          )}
         </div>
-
-        {notes.length > 0 && (
-          <section style={subSectionStyle}>
-            <strong style={subSectionTitleStyle}>Note</strong>
-            <p style={sectionTextStyle}>{notes.join(" · ")}</p>
-          </section>
-        )}
-
-        {hasValue(player.commento) && (
-          <section style={subSectionStyle}>
-            <strong style={subSectionTitleStyle}>Commento</strong>
-            <p style={sectionTextStyle}>{String(player.commento)}</p>
-          </section>
-        )}
       </section>
     </aside>
   );
@@ -575,66 +654,45 @@ export default function PlayerTooltip({
 const tooltipStyle: CSSProperties = {
   position: "fixed",
   zIndex: 2000,
-  width: "min(860px, calc(100vw - 24px))",
-  maxHeight: "min(700px, calc(100vh - 24px))",
+  width: "min(860px, calc(100vw - 28px))",
+  maxHeight: "min(720px, calc(100vh - 28px))",
   overflowY: "auto",
-  padding: "12px",
+  padding: "16px",
   border: "1px solid rgba(255,255,255,0.16)",
   borderRadius: "10px",
-  background: "rgba(36, 52, 68, 0.985)",
+  background: "rgba(36, 52, 68, 0.98)",
   color: "#fff",
   boxShadow: "0 12px 34px rgba(0,0,0,0.38)",
   pointerEvents: "none",
-  fontSize: "0.81rem",
-  lineHeight: 1.35,
+  fontSize: "0.84rem",
+  lineHeight: 1.45,
 };
 
-const headerRowStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "minmax(200px, 240px) minmax(0, 1fr)",
+const tooltipHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
   gap: "12px",
-  alignItems: "start",
-  paddingBottom: "8px",
-  marginBottom: "8px",
+  paddingBottom: "10px",
+  marginBottom: "10px",
   borderBottom: "1px solid rgba(255,255,255,0.18)",
-};
-
-const identityBlockStyle: CSSProperties = {
-  minWidth: 0,
 };
 
 const playerNameStyle: CSSProperties = {
   display: "block",
   color: "#74b9ff",
-  fontSize: "1.05rem",
-  lineHeight: 1.15,
+  fontSize: "1.08rem",
 };
 
 const playerSubtitleStyle: CSSProperties = {
   marginTop: "2px",
   color: "#dfe6e9",
-  lineHeight: 1.2,
 };
 
-const suggestionsInlineStyle: CSSProperties = {
-  minWidth: 0,
-};
-
-const mainSectionStyle: CSSProperties = {
-  paddingTop: "2px",
-};
-
-const sectionTitleStyle: CSSProperties = {
-  color: "#74b9ff",
-  display: "block",
-  marginBottom: "6px",
-};
-
-const statsGridStyle: CSSProperties = {
+const detailsGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "minmax(180px, 0.9fr) repeat(3, minmax(140px, 1fr))",
-  gap: "10px",
-  alignItems: "start",
+  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+  gap: "14px",
 };
 
 const detailColumnStyle: CSSProperties = {
@@ -642,16 +700,15 @@ const detailColumnStyle: CSSProperties = {
 };
 
 const detailColumnTitleStyle: CSSProperties = {
-  margin: "0 0 5px",
+  margin: "0 0 6px",
   color: "#f6c344",
-  fontSize: "0.88rem",
-  lineHeight: 1.15,
+  fontSize: "0.9rem",
 };
 
 const detailLineStyle: CSSProperties = {
   margin: 0,
-  padding: "3px 0",
-  borderBottom: "1px solid rgba(255,255,255,0.08)",
+  padding: "4px 0",
+  borderBottom: "1px solid rgba(255,255,255,0.1)",
   overflowWrap: "anywhere",
 };
 
@@ -664,9 +721,24 @@ const emptyTextStyle: CSSProperties = {
   color: "#b2bec3",
 };
 
-const subSectionStyle: CSSProperties = {
-  paddingTop: "8px",
+const fullWidthSectionStyle: CSSProperties = {
+  paddingTop: "10px",
+  marginTop: "10px",
+  borderTop: "1px solid rgba(255,255,255,0.18)",
+};
+
+const sectionTitleStyle: CSSProperties = {
+  color: "#74b9ff",
+  display: "block",
+};
+
+const statisticsSectionContentStyle: CSSProperties = {
   marginTop: "8px",
+};
+
+const subSectionStyle: CSSProperties = {
+  paddingTop: "10px",
+  marginTop: "10px",
   borderTop: "1px solid rgba(255,255,255,0.1)",
 };
 
@@ -675,32 +747,31 @@ const subSectionTitleStyle: CSSProperties = {
 };
 
 const sectionTextStyle: CSSProperties = {
-  margin: "3px 0 0",
+  margin: "4px 0 0",
   whiteSpace: "normal",
-  lineHeight: 1.35,
+};
+
+const alertsSectionStyle: CSSProperties = {
+  paddingTop: "10px",
+  marginTop: "10px",
+  borderTop: "1px solid rgba(255,255,255,0.18)",
 };
 
 const alertsTitleStyle: CSSProperties = {
   color: "#f6c344",
-  display: "block",
-  marginBottom: "3px",
-  lineHeight: 1.15,
 };
 
 const noAlertsStyle: CSSProperties = {
-  margin: 0,
+  margin: "5px 0 0",
   color: "#a3e4b1",
-  lineHeight: 1.3,
 };
 
 const alertsListStyle: CSSProperties = {
-  display: "grid",
-  gap: "2px",
+  marginTop: "5px",
 };
 
 const alertLineStyle: CSSProperties = {
-  margin: 0,
-  lineHeight: 1.28,
+  margin: "4px 0",
 };
 
 const criticalAlertLineStyle: CSSProperties = {

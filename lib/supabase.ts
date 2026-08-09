@@ -1,23 +1,24 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY;
+const supabaseUrl =
+  process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+const supabasePublishableKey =
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
 if (!supabaseUrl) {
-  throw new Error("Variabile SUPABASE_URL non configurata.");
+  throw new Error(
+    "NEXT_PUBLIC_SUPABASE_URL non configurata",
+  );
 }
 
-if (!supabaseSecretKey) {
-  throw new Error("Variabile SUPABASE_SECRET_KEY non configurata.");
+if (!supabasePublishableKey) {
+  throw new Error(
+    "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY non configurata",
+  );
 }
 
 export const supabase = createClient(
   supabaseUrl,
-  supabaseSecretKey,
-  {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  },
+  supabasePublishableKey,
 );

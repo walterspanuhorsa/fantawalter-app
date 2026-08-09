@@ -27,7 +27,9 @@ import {
   DEFAULT_VISIBLE_COLUMNS,
   formatStrategyLabel,
   type ColumnDefinition,
+  type LeagueSize,
   type PersistedAuctionState,
+  type PlayerMode,
 } from "@/lib/auction-settings";
 
 import {
@@ -46,6 +48,9 @@ interface AuctionAssistantProps {
   initialPlayers: PlayerRow[];
   strategyColumns: string[];
   lastUpdate: string | null;
+  playerMode: PlayerMode;
+  leagueSize: LeagueSize;
+  defenseModifier: boolean;
 }
 
 type SortDirection = "asc" | "desc";
@@ -515,6 +520,9 @@ export default function AuctionAssistant({
   initialPlayers,
   strategyColumns,
   lastUpdate,
+  playerMode,
+  leagueSize,
+  defenseModifier,
 }: AuctionAssistantProps) {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -1398,7 +1406,6 @@ export default function AuctionAssistant({
 
           .fantawalter-filter-bin {
             width: auto !important;
-            margin-left: auto !important;
           }
 
           .fantawalter-role-filter {
@@ -1436,8 +1443,27 @@ export default function AuctionAssistant({
             {themeMode === "light" ? "☀" : "☾"}
           </span>
         </button>
+<div
+  style={leagueSummaryStyle}
+  title="Configurazione lega attiva"
+>
+  <strong>
+    Lega: {playerMode === "classic" ? "Classic" : "Mantra"}
+  </strong>
+
+  <span> | </span>
+
+  <strong> Partecipanti: {leagueSize} </strong>
+
+  <span> | </span>
+
+  <strong>
+    Mod. {defenseModifier ? "Sì" : "No"}
+  </strong>
+</div>
 
         <div
+			
           className="fantawalter-service-info"
           style={serviceInfoStyle}
         >
@@ -1580,23 +1606,23 @@ export default function AuctionAssistant({
               </datalist>
             </label>
 
-            <button
-              className="fantawalter-filter-bin"
-              type="button"
-              onClick={() => {
-                setHoveredPlayer(null);
-                setIsBinOpen(true);
-              }}
-              style={filterBinButtonStyle}
-            >
-              🗑️ Cestino
+<button
+  className="fantawalter-filter-bin"
+  type="button"
+  onClick={() => {
+    setHoveredPlayer(null);
+    setIsBinOpen(true);
+  }}
+  style={filterBinButtonStyle}
+>
+  🗑️ Cestino
 
-              {deletedPlayers.length > 0 && (
-                <span style={binBadgeStyle}>
-                  {deletedPlayers.length}
-                </span>
-              )}
-            </button>
+  {deletedPlayers.length > 0 && (
+    <span style={binBadgeStyle}>
+      {deletedPlayers.length}
+    </span>
+  )}
+</button>
           </div>
 
           <div style={tableWrapperStyle}>
@@ -2014,6 +2040,22 @@ const serviceBarStyle: CSSProperties = {
   boxShadow: "var(--fw-shadow-soft)",
 };
 
+const leagueSummaryStyle: CSSProperties = {
+  minHeight: "36px",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "4px",
+  padding: "0 10px",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "var(--fw-border-strong)",
+  borderRadius: "7px",
+  background: "var(--fw-panel-soft)",
+  color: "var(--fw-text-secondary)",
+  fontSize: "0.8rem",
+  whiteSpace: "nowrap",
+};
+
 const serviceInfoStyle: CSSProperties = {
   minWidth: 0,
   flex: "1 1 auto",
@@ -2114,10 +2156,10 @@ const allRolesFilterButtonStyle: CSSProperties = {
   fontSize: "0.78rem",
 };
 
+
 const filterBinButtonStyle: CSSProperties = {
   position: "relative",
   minHeight: "36px",
-  marginLeft: "auto",
   padding: "6px 11px",
   border: 0,
   borderRadius: "7px",
@@ -2125,6 +2167,7 @@ const filterBinButtonStyle: CSSProperties = {
   color: "var(--fw-table-head-text)",
   fontWeight: 700,
   cursor: "pointer",
+  marginLeft: "auto",
 };
 
 const binBadgeStyle: CSSProperties = {

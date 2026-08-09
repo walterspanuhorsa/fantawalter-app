@@ -1,14 +1,21 @@
 "use client";
 
+// AUCTION_SETTINGS_BORDER_FIX_V1: evita mix border/borderColor nei pulsanti dinamici.
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   useEffect,
   useMemo,
   useState,
   type CSSProperties,
+  type ReactNode,
 } from "react";
 
 import {
+  DEFENSE_MODIFIER_COOKIE,
+  LEAGUE_SIZE_COOKIE,
+  PLAYER_MODE_COOKIE,
   clearAuctionData,
   createDefaultAuctionSettings,
   getAllColumns,
@@ -18,6 +25,8 @@ import {
   saveAuctionSettings,
   type AuctionSettings,
   type ColumnDefinition,
+  type LeagueSize,
+  type PlayerMode,
 } from "@/lib/auction-settings";
 import {
   ROLE_ORDER,
@@ -26,19 +35,13 @@ import {
 
 interface AuctionSettingsPanelProps {
   strategyColumns: string[];
-}
-
-function formatPercentage(value: number): string {
-  const roundedValue = Math.round(value * 10) / 10;
-
-  return `${roundedValue.toLocaleString("it-IT", {
-    maximumFractionDigits: 1,
-  })}%`;
+  playerMode: PlayerMode;
+  leagueSize: LeagueSize;
+  defenseModifier: boolean;
 }
 
 type SettingsSection =
   | "general"
-  | "squad"
   | "table"
   | "reset";
 
@@ -49,17 +52,13 @@ const SETTINGS_SECTIONS: Array<{
 }> = [
   {
     key: "general",
-    label: "Generale",
-    description: "Budget e gestione dei prezzi.",
-  },
-  {
-    key: "squad",
-    label: "Composizione rosa",
-    description: "Numero massimo di giocatori.",
+    label: "Preferenze lega",
+    description:
+      "Tipo, partecipanti, rosa e budget.",
   },
   {
     key: "table",
-    label: "Tabella giocatori",
+    label: "Tabella listone",
     description: "Colonne visibili nell’asta.",
   },
   {
@@ -69,13 +68,41 @@ const SETTINGS_SECTIONS: Array<{
   },
 ];
 
+const COOKIE_MAX_AGE = 31536000;
+
+function formatPercentage(value: number): string {
+  const roundedValue = Math.round(value * 10) / 10;
+
+  return `${roundedValue.toLocaleString("it-IT", {
+    maximumFractionDigits: 1,
+  })}%`;
+}
+
+function writeCookie(
+  name: string,
+  value: string,
+): void {
+  document.cookie =
+    `${name}=${encodeURIComponent(value)}; ` +
+    `path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`;
+}
+
 export default function AuctionSettingsPanel({
   strategyColumns,
+  playerMode,
+  leagueSize,
+  defenseModifier,
 }: AuctionSettingsPanelProps) {
-  const [settings, setSettings] = useState<AuctionSettings>(
-    () => createDefaultAuctionSettings(),
-  );
-  const [storageReady, setStorageReady] = useState(false);
+  const router = useRouter();
+
+  const [settings, setSettings] =
+    useState<AuctionSettings>(
+      () => createDefaultAuctionSettings(),
+    );
+
+  const [storageReady, setStorageReady] =
+    useState(false);
+
   const [activeSection, setActiveSection] =
     useState<SettingsSection>("general");
 
@@ -92,7 +119,8 @@ export default function AuctionSettingsPanel({
   const mainColumns = useMemo(
     () =>
       allColumns.filter(
-        (column) => !strategyColumnKeySet.has(column.key),
+        (column) =>
+          !strategyColumnKeySet.has(column.key),
       ),
     [allColumns, strategyColumnKeySet],
   );
@@ -105,45 +133,66 @@ export default function AuctionSettingsPanel({
     [allColumns, strategyColumnKeySet],
   );
 
-  const totalPlannedRoleBudget = ROLE_ORDER.reduce(
-    (total, role) => total + settings.roleBudgets[role],
-    0,
-  );
+  const totalPlannedRoleBudget =
+    ROLE_ORDER.reduce(
+      (total, role) =>
+        total + settings.roleBudgets[role],
+      0,
+    );
 
   const unallocatedRoleBudget =
-    settings.initialBudget - totalPlannedRoleBudget;
+    settings.initialBudget -
+    totalPlannedRoleBudget;
 
   const totalPlannedRoleBudgetPercentage =
     settings.initialBudget > 0
-      ? (totalPlannedRoleBudget / settings.initialBudget) * 100
+      ? (
+          totalPlannedRoleBudget /
+          settings.initialBudget
+        ) * 100
       : 0;
 
   const unallocatedRoleBudgetPercentage =
     100 - totalPlannedRoleBudgetPercentage;
 
-  const totalPlayers = ROLE_ORDER.reduce(
-    (total, role) => total + settings.roleLimits[role],
-    0,
-  );
 
   useEffect(() => {
-    const animationFrameId = window.requestAnimationFrame(() => {
-      const persistedState = loadPersistedAuctionState();
+    const animationFrameId =
+      window.requestAnimationFrame(() => {
+        const persistedState =
+          loadPersistedAuctionState();
 
-      setSettings(
-        resolveAuctionSettings(
-          persistedState,
-          strategyColumns,
-        ),
-      );
+        const resolved =
+          resolveAuctionSettings(
+            persistedState,
+            strategyColumns,
+          );
 
-      setStorageReady(true);
-    });
+        /*
+         * Le tre preferenze che determinano i dati caricati
+         * server-side arrivano dai cookie e sono quindi autorevoli.
+         */
+        setSettings({
+          ...resolved,
+          playerMode,
+          leagueSize,
+          defenseModifier,
+        });
+
+        setStorageReady(true);
+      });
 
     return () => {
-      window.cancelAnimationFrame(animationFrameId);
+      window.cancelAnimationFrame(
+        animationFrameId,
+      );
     };
-  }, [strategyColumns]);
+  }, [
+    strategyColumns,
+    playerMode,
+    leagueSize,
+    defenseModifier,
+  ]);
 
   useEffect(() => {
     if (!storageReady) {
@@ -154,9 +203,104 @@ export default function AuctionSettingsPanel({
   }, [settings, storageReady]);
 
   function updateSettings(
-    updater: (current: AuctionSettings) => AuctionSettings,
+    updater: (
+      current: AuctionSettings,
+    ) => AuctionSettings,
   ): void {
-    setSettings((current) => updater(current));
+    setSettings((current) =>
+      updater(current),
+    );
+  }
+
+  function changePlayerMode(
+    nextMode: PlayerMode,
+  ): void {
+    if (
+      nextMode === settings.playerMode
+    ) {
+      return;
+    }
+
+    const nextSettings: AuctionSettings = {
+      ...settings,
+      playerMode: nextMode,
+
+      /*
+       * Le colonne dei creator dipendono da Classic/Mantra.
+       * Eliminiamo dal salvataggio quelle del vecchio tipo,
+       * lasciando inalterate le colonne principali.
+       */
+      visibleColumnKeys:
+        settings.visibleColumnKeys.filter(
+          (columnKey) =>
+            !columnKey.startsWith(
+              "strategia_",
+            ),
+        ),
+      columnOrderKeys:
+        settings.columnOrderKeys.filter(
+          (columnKey) =>
+            !columnKey.startsWith(
+              "strategia_",
+            ),
+        ),
+    };
+
+    setSettings(nextSettings);
+    writeCookie(
+      PLAYER_MODE_COOKIE,
+      nextMode,
+    );
+    saveAuctionSettings(nextSettings);
+
+    /*
+     * Serve a ricaricare nella pagina Configurazione
+     * le colonne strategia del nuovo tipo.
+     */
+    router.refresh();
+  }
+
+  function changeLeagueSize(
+    nextLeagueSize: LeagueSize,
+  ): void {
+    if (
+      nextLeagueSize === settings.leagueSize
+    ) {
+      return;
+    }
+
+    const nextSettings = {
+      ...settings,
+      leagueSize: nextLeagueSize,
+    };
+
+    setSettings(nextSettings);
+    writeCookie(
+      LEAGUE_SIZE_COOKIE,
+      String(nextLeagueSize),
+    );
+    saveAuctionSettings(nextSettings);
+  }
+
+
+  function changeDefenseModifier(
+    enabled: boolean,
+  ): void {
+    if (enabled === settings.defenseModifier) {
+      return;
+    }
+
+    const nextSettings = {
+      ...settings,
+      defenseModifier: enabled,
+    };
+
+    setSettings(nextSettings);
+    writeCookie(
+      DEFENSE_MODIFIER_COOKIE,
+      enabled ? "true" : "false",
+    );
+    saveAuctionSettings(nextSettings);
   }
 
   function changeRoleLimit(
@@ -185,15 +329,19 @@ export default function AuctionSettingsPanel({
     }));
   }
 
-  function changeInitialBudget(value: number): void {
+  function changeInitialBudget(
+    value: number,
+  ): void {
     const nextInitialBudget =
-      Number.isFinite(value) && value > 0
+      Number.isFinite(value) &&
+      value > 0
         ? Math.trunc(value)
         : 1;
 
     updateSettings((current) => ({
       ...current,
-      initialBudget: nextInitialBudget,
+      initialBudget:
+        nextInitialBudget,
     }));
   }
 
@@ -202,7 +350,8 @@ export default function AuctionSettingsPanel({
     percentage: number,
   ): void {
     const normalizedPercentage =
-      Number.isFinite(percentage) && percentage >= 0
+      Number.isFinite(percentage) &&
+      percentage >= 0
         ? percentage
         : 0;
 
@@ -211,8 +360,10 @@ export default function AuctionSettingsPanel({
       Math.max(
         0,
         Math.round(
-          (settings.initialBudget * normalizedPercentage) /
-            100,
+          (
+            settings.initialBudget *
+            normalizedPercentage
+          ) / 100,
         ),
       ),
     );
@@ -221,33 +372,46 @@ export default function AuctionSettingsPanel({
   function getRoleBudgetPercentage(
     role: PlayerRole,
   ): number {
-    if (settings.initialBudget <= 0) {
+    if (
+      settings.initialBudget <= 0
+    ) {
       return 0;
     }
 
     return (
-      (settings.roleBudgets[role] /
-        settings.initialBudget) *
-      100
+      (
+        settings.roleBudgets[role] /
+        settings.initialBudget
+      ) * 100
     );
   }
 
-  function toggleColumn(columnKey: string): void {
+  function toggleColumn(
+    columnKey: string,
+  ): void {
     updateSettings((current) => {
-      if (current.visibleColumnKeys.includes(columnKey)) {
+      if (
+        current.visibleColumnKeys.includes(
+          columnKey,
+        )
+      ) {
         const remainingColumns =
           current.visibleColumnKeys.filter(
             (currentColumnKey) =>
-              currentColumnKey !== columnKey,
+              currentColumnKey !==
+              columnKey,
           );
 
-        if (remainingColumns.length === 0) {
+        if (
+          remainingColumns.length === 0
+        ) {
           return current;
         }
 
         return {
           ...current,
-          visibleColumnKeys: remainingColumns,
+          visibleColumnKeys:
+            remainingColumns,
         };
       }
 
@@ -264,25 +428,29 @@ export default function AuctionSettingsPanel({
   function showAllColumns(): void {
     updateSettings((current) => ({
       ...current,
-      visibleColumnKeys: allColumns.map(
-        (column) => column.key,
-      ),
+      visibleColumnKeys:
+        allColumns.map(
+          (column) => column.key,
+        ),
     }));
   }
 
   function restoreDefaultColumns(): void {
-    const defaults = createDefaultAuctionSettings();
+    const defaults =
+      createDefaultAuctionSettings();
 
     updateSettings((current) => ({
       ...current,
-      visibleColumnKeys: defaults.visibleColumnKeys,
+      visibleColumnKeys:
+        defaults.visibleColumnKeys,
     }));
   }
 
   function resetAuction(): void {
-    const confirmed = window.confirm(
-      "Vuoi svuotare la rosa, il cestino e tutti i prezzi registrati? Le impostazioni verranno mantenute.",
-    );
+    const confirmed =
+      window.confirm(
+        "Vuoi svuotare la rosa, il cestino e tutti i prezzi registrati? Le impostazioni verranno mantenute.",
+      );
 
     if (!confirmed) {
       return;
@@ -296,15 +464,37 @@ export default function AuctionSettingsPanel({
   }
 
   function resetPreferences(): void {
-    const confirmed = window.confirm(
-      "Vuoi ripristinare budget, limiti, budget per ruolo e colonne predefinite? La rosa attuale non verrà cancellata.",
-    );
+    const confirmed =
+      window.confirm(
+        "Vuoi ripristinare preferenze lega, budget, limiti, budget per ruolo e colonne predefinite? La rosa attuale non verrà cancellata.",
+      );
 
     if (!confirmed) {
       return;
     }
 
-    setSettings(createDefaultAuctionSettings());
+    const defaults =
+      createDefaultAuctionSettings();
+
+    setSettings(defaults);
+
+    writeCookie(
+      PLAYER_MODE_COOKIE,
+      defaults.playerMode,
+    );
+    writeCookie(
+      LEAGUE_SIZE_COOKIE,
+      String(defaults.leagueSize),
+    );
+    writeCookie(
+      DEFENSE_MODIFIER_COOKIE,
+      defaults.defenseModifier
+        ? "true"
+        : "false",
+    );
+
+    saveAuctionSettings(defaults);
+    router.refresh();
   }
 
   function renderColumnControls(
@@ -312,36 +502,25 @@ export default function AuctionSettingsPanel({
   ) {
     return columns.map((column) => {
       const isVisible =
-        settings.visibleColumnKeys.includes(column.key);
+        settings.visibleColumnKeys.includes(
+          column.key,
+        );
 
       return (
         <button
           key={column.key}
           type="button"
-          onClick={() => toggleColumn(column.key)}
+          onClick={() =>
+            toggleColumn(column.key)
+          }
           aria-pressed={isVisible}
           style={{
-            ...columnButtonStyle,
-            background: isVisible
-              ? "var(--fw-accent-soft)"
-              : "var(--fw-control-muted-bg)",
-            borderColor: isVisible
-              ? "var(--fw-accent-border)"
-              : "var(--fw-border)",
-            color: isVisible
-              ? "var(--fw-accent-text)"
-              : "var(--fw-control-muted-text)",
+            ...choiceButtonStyle,
+            ...(isVisible
+              ? choiceButtonActiveStyle
+              : {}),
           }}
         >
-          <span
-            aria-hidden="true"
-            style={{
-              ...columnStateDotStyle,
-              background: isVisible
-                ? "var(--fw-accent)"
-                : "var(--fw-text-muted)",
-            }}
-          />
           {column.label}
         </button>
       );
@@ -351,13 +530,210 @@ export default function AuctionSettingsPanel({
   function renderGeneralSection() {
     return (
       <>
-        <SectionHeader
-          title="Generale"
-          description="Configura il budget iniziale e gli avvisi basati sui prezzi di acquisto."
-        />
+        <SectionHeader title="Preferenze lega" />
 
-        <div style={settingsListStyle}>
-          <div className="fantawalter-setting-row" style={settingRowStyle}>
+        <div style={settingsStackStyle}>
+          <section style={settingBlockStyle}>
+            <div style={settingCopyStyle}>
+              <strong style={settingTitleStyle}>
+                Tipo di fantacalcio
+              </strong>
+              <span style={settingDescriptionStyle}>
+                Scegli tra modalità Classic e Mantra.
+              </span>
+            </div>
+
+            <div style={segmentedControlStyle}>
+              {(
+                [
+                  "classic",
+                  "mantra",
+                ] as PlayerMode[]
+              ).map((mode) => {
+                const active =
+                  settings.playerMode ===
+                  mode;
+
+                return (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() =>
+                      changePlayerMode(
+                        mode,
+                      )
+                    }
+                    aria-pressed={active}
+                    style={{
+                      ...segmentButtonStyle,
+                      ...(active
+                        ? segmentButtonActiveStyle
+                        : {}),
+                    }}
+                  >
+                    {mode === "classic"
+                      ? "Classic"
+                      : "Mantra"}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <section style={settingBlockStyle}>
+            <div style={settingCopyStyle}>
+              <strong style={settingTitleStyle}>
+                Partecipanti
+              </strong>
+              <span style={settingDescriptionStyle}>
+                Numero di allenatori della lega: determina la PMA utilizzata.
+              </span>
+            </div>
+
+            <div style={segmentedControlStyle}>
+              {(
+                [8, 10, 12] as LeagueSize[]
+              ).map((size) => {
+                const active =
+                  settings.leagueSize ===
+                  size;
+
+                return (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() =>
+                      changeLeagueSize(
+                        size,
+                      )
+                    }
+                    aria-pressed={active}
+                    style={{
+                      ...segmentButtonStyle,
+                      ...(active
+                        ? segmentButtonActiveStyle
+                        : {}),
+                    }}
+                  >
+                    {size}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <section style={settingBlockStyle}>
+            <div style={settingCopyStyle}>
+              <strong style={settingTitleStyle}>
+                Modificatore difesa
+              </strong>
+              <span style={settingDescriptionStyle}>
+                Indica se nella lega è attivo il modificatore della difesa.
+              </span>
+            </div>
+
+            <div style={segmentedControlStyle}>
+              <button
+                type="button"
+                onClick={() =>
+                  changeDefenseModifier(
+                    false,
+                  )
+                }
+                aria-pressed={
+                  !settings.defenseModifier
+                }
+                style={{
+                  ...segmentButtonStyle,
+                  ...(!settings.defenseModifier
+                    ? segmentButtonActiveStyle
+                    : {}),
+                }}
+              >
+                No
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  changeDefenseModifier(
+                    true,
+                  )
+                }
+                aria-pressed={
+                  settings.defenseModifier
+                }
+                style={{
+                  ...segmentButtonStyle,
+                  ...(settings.defenseModifier
+                    ? segmentButtonActiveStyle
+                    : {}),
+                }}
+              >
+                Sì
+              </button>
+            </div>
+          </section>
+
+          <section style={settingBlockStyle}>
+            <div style={settingCopyStyle}>
+              <strong style={settingTitleStyle}>
+                Composizione rosa
+              </strong>
+              <span style={settingDescriptionStyle}>
+                Imposta il numero massimo di P, D, C e A acquistabili.
+              </span>
+            </div>
+
+            <div style={compactRoleLimitsStyle}>
+              {ROLE_ORDER.map((role) => (
+                <label
+                  key={role}
+                  style={compactRoleLimitStyle}
+                >
+                  <span style={compactRoleCodeStyle}>
+                    {role}
+                  </span>
+
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={
+                      settings.roleLimits[
+                        role
+                      ]
+                    }
+                    onChange={(event) => {
+                      const value =
+                        event.currentTarget
+                          .valueAsNumber;
+
+                      changeRoleLimit(
+                        role,
+                        Number.isFinite(
+                          value,
+                        )
+                          ? Math.max(
+                              0,
+                              Math.trunc(
+                                value,
+                              ),
+                            )
+                          : 0,
+                      );
+                    }}
+                    style={compactRoleInputStyle}
+                    aria-label={`Numero massimo ${roleLabel(
+                      role,
+                    )}`}
+                  />
+                </label>
+              ))}
+            </div>
+          </section>
+
+          <section style={settingBlockStyle}>
             <div style={settingCopyStyle}>
               <strong style={settingTitleStyle}>
                 Budget iniziale
@@ -371,295 +747,208 @@ export default function AuctionSettingsPanel({
               type="number"
               min={1}
               step={1}
-              value={settings.initialBudget}
-              onChange={(event) => {
+              value={
+                settings.initialBudget
+              }
+              onChange={(event) =>
                 changeInitialBudget(
-                  event.currentTarget.valueAsNumber,
-                );
-              }}
-              aria-label="Budget iniziale"
-              style={numberControlStyle}
+                  event.currentTarget
+                    .valueAsNumber,
+                )
+              }
+              style={numberInputStyle}
             />
-          </div>
+          </section>
 
-          <div className="fantawalter-setting-row" style={settingRowStyle}>
-            <div style={settingCopyStyle}>
-              <strong style={settingTitleStyle}>
-                Registra prezzi di acquisto
-              </strong>
-              <span style={settingDescriptionStyle}>
-                Attiva gli avvisi sulla spesa e richiede il prezzo
-                pagato per ogni giocatore acquistato.
-              </span>
-            </div>
+          <section style={settingBlockStyle}>
+            <strong style={settingTitleStyle}>
+              Registra prezzi di acquisto
+            </strong>
 
             <button
               type="button"
-              aria-pressed={settings.recordPurchasePrice}
+              aria-pressed={
+                settings.recordPurchasePrice
+              }
               onClick={() =>
-                updateSettings((current) => ({
-                  ...current,
-                  recordPurchasePrice:
-                    !current.recordPurchasePrice,
-                }))
+                updateSettings(
+                  (current) => ({
+                    ...current,
+                    recordPurchasePrice:
+                      !current.recordPurchasePrice,
+                  }),
+                )
               }
               style={{
-                ...switchButtonStyle,
+                ...toggleButtonStyle,
                 ...(settings.recordPurchasePrice
-                  ? switchButtonActiveStyle
+                  ? toggleButtonActiveStyle
                   : {}),
               }}
             >
-              <span style={switchTrackStyle}>
-                <span
-                  style={{
-                    ...switchThumbStyle,
-                    transform: settings.recordPurchasePrice
-                      ? "translateX(20px)"
-                      : "translateX(0)",
-                  }}
-                />
-              </span>
-              <span>
-                {settings.recordPurchasePrice
-                  ? "Attivo"
-                  : "Disattivo"}
-              </span>
+              {settings.recordPurchasePrice
+                ? "Attivo"
+                : "Disattivo"}
             </button>
-          </div>
-        </div>
+          </section>
 
-        {settings.recordPurchasePrice && (
-          <section style={subsectionStyle}>
-            <div
-              className="fantawalter-budget-header"
-              style={subsectionHeaderStyle}
-            >
-              <div>
-                <h3 style={subsectionTitleStyle}>
-                  Budget per reparto
-                </h3>
-                <p style={subsectionDescriptionStyle}>
-                  Imposta il tetto di spesa in crediti o in
-                  percentuale del budget iniziale. I due valori si
-                  aggiornano automaticamente.
-                </p>
-              </div>
-
-              <span
-                style={{
-                  ...budgetBadgeStyle,
-                  ...(unallocatedRoleBudget < 0
-                    ? budgetBadgeWarningStyle
-                    : {}),
-                }}
-              >
-                {totalPlannedRoleBudget}/
-                {settings.initialBudget} ·{" "}
-                {formatPercentage(
-                  totalPlannedRoleBudgetPercentage,
-                )}
-              </span>
-            </div>
-
-            <div
-              className="fantawalter-budget-columns-header"
-              aria-hidden="true"
-              style={roleBudgetColumnsHeaderStyle}
-            >
-              <span />
-              <span style={roleBudgetColumnLabelStyle}>
-                $ Crediti
-              </span>
-              <span style={roleBudgetColumnLabelStyle}>
-                % Budget
-              </span>
-            </div>
-
-            <div style={roleBudgetListStyle}>
-              {ROLE_ORDER.map((role) => {
-                const roleBudgetPercentage =
-                  getRoleBudgetPercentage(role);
-
-                return (
-                  <div
-                    key={role}
-                    className="fantawalter-role-budget-row"
-                    style={roleBudgetRowStyle}
+          {settings.recordPurchasePrice && (
+            <section style={budgetPanelStyle}>
+              <div style={budgetHeaderStyle}>
+                <div>
+                  <strong
+                    style={
+                      settingTitleStyle
+                    }
                   >
-                    <span style={roleNameStyle}>
-                      {roleLabel(role)}
-                    </span>
+                    Budget previsto per
+                    ruolo
+                  </strong>
+                </div>
 
-                    <label style={roleBudgetInputWrapStyle}>
-                      <span
-                        aria-hidden="true"
-                        style={roleBudgetPrefixStyle}
-                      >
-                        $
-                      </span>
-
-                      <input
-                        type="number"
-                        min={0}
-                        step={1}
-                        value={settings.roleBudgets[role]}
-                        onChange={(event) => {
-                          const value =
-                            event.currentTarget.valueAsNumber;
-
-                          changeRoleBudget(
-                            role,
-                            Number.isFinite(value)
-                              ? Math.max(
-                                  0,
-                                  Math.trunc(value),
-                                )
-                              : 0,
-                          );
-                        }}
-                        aria-label={`Budget ${roleLabel(
-                          role,
-                        )} in crediti`}
-                        style={{
-                          ...roleBudgetNumberControlStyle,
-                          paddingLeft: "30px",
-                        }}
-                      />
-                    </label>
-
-                    <label style={roleBudgetInputWrapStyle}>
-                      <input
-                        type="number"
-                        min={0}
-                        step={0.1}
-                        value={Number(
-                          roleBudgetPercentage.toFixed(1),
-                        )}
-                        onChange={(event) => {
-                          changeRoleBudgetPercentage(
-                            role,
-                            event.currentTarget.valueAsNumber,
-                          );
-                        }}
-                        aria-label={`Budget ${roleLabel(
-                          role,
-                        )} in percentuale`}
-                        style={{
-                          ...roleBudgetNumberControlStyle,
-                          paddingRight: "30px",
-                        }}
-                      />
-
-                      <span
-                        aria-hidden="true"
-                        style={roleBudgetSuffixStyle}
-                      >
-                        %
-                      </span>
-                    </label>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div
-              style={{
-                ...budgetStatusStyle,
-                ...(unallocatedRoleBudget < 0
-                  ? budgetStatusWarningStyle
-                  : {}),
-              }}
-            >
-              {unallocatedRoleBudget > 0 && (
-                <>
-                  Restano{" "}
-                  <strong>{unallocatedRoleBudget}</strong>{" "}
-                  crediti non assegnati ·{" "}
-                  <strong>
-                    {formatPercentage(
-                      unallocatedRoleBudgetPercentage,
-                    )}
-                  </strong>{" "}
-                  del budget.
-                </>
-              )}
-
-              {unallocatedRoleBudget === 0 && (
-                <>
-                  Il budget è interamente assegnato ·{" "}
-                  <strong>100%</strong>.
-                </>
-              )}
-
-              {unallocatedRoleBudget < 0 && (
-                <>
-                  Il totale supera il budget iniziale di{" "}
-                  <strong>
-                    {Math.abs(unallocatedRoleBudget)}
-                  </strong>{" "}
-                  crediti ·{" "}
-                  <strong>
+                <div
+                  style={
+                    budgetSummaryStyle
+                  }
+                >
+                  <span>
+                    Assegnato:{" "}
+                    <strong>
+                      {
+                        totalPlannedRoleBudget
+                      }
+                    </strong>{" "}
+                    (
                     {formatPercentage(
                       totalPlannedRoleBudgetPercentage,
                     )}
-                  </strong>{" "}
-                  assegnato.
-                </>
-              )}
-            </div>
-          </section>
-        )}
-      </>
-    );
-  }
+                    )
+                  </span>
 
-  function renderSquadSection() {
-    return (
-      <>
-        <SectionHeader
-          title="Composizione della rosa"
-          description="Definisci il numero massimo di giocatori previsto per ogni ruolo."
-          meta={`${totalPlayers} giocatori`}
-        />
-
-        <div style={roleLimitsListStyle}>
-          {ROLE_ORDER.map((role) => (
-            <label
-              key={role}
-              className="fantawalter-setting-row"
-              style={settingRowStyle}
-            >
-              <div style={settingCopyStyle}>
-                <strong style={settingTitleStyle}>
-                  {roleLabel(role)}
-                </strong>
-                <span style={settingDescriptionStyle}>
-                  Limite massimo per il ruolo {role}.
-                </span>
+                  <span>
+                    Residuo:{" "}
+                    <strong>
+                      {
+                        unallocatedRoleBudget
+                      }
+                    </strong>{" "}
+                    (
+                    {formatPercentage(
+                      unallocatedRoleBudgetPercentage,
+                    )}
+                    )
+                  </span>
+                </div>
               </div>
 
-              <input
-                type="number"
-                min={0}
-                step={1}
-                value={settings.roleLimits[role]}
-                onChange={(event) => {
-                  const value =
-                    event.currentTarget.valueAsNumber;
+              <div
+                style={roleBudgetGridStyle}
+              >
+                {ROLE_ORDER.map(
+                  (role) => (
+                    <div
+                      key={role}
+                      style={
+                        roleBudgetRowStyle
+                      }
+                    >
+                      <div
+                        style={
+                          roleBudgetLabelStyle
+                        }
+                      >
+                        <strong>
+                          {role}
+                        </strong>
+                        <span>
+                          {roleLabel(role)}
+                        </span>
+                      </div>
 
-                  changeRoleLimit(
-                    role,
-                    Number.isFinite(value)
-                      ? Math.max(0, Math.trunc(value))
-                      : 0,
-                  );
-                }}
-                aria-label={`Limite ${roleLabel(role)}`}
-                style={numberControlStyle}
-              />
-            </label>
-          ))}
+                      <label
+                        style={
+                          compactFieldStyle
+                        }
+                      >
+                        <span>
+                          Crediti
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          step={1}
+                          value={
+                            settings
+                              .roleBudgets[
+                              role
+                            ]
+                          }
+                          onChange={(
+                            event,
+                          ) => {
+                            const value =
+                              event
+                                .currentTarget
+                                .valueAsNumber;
+
+                            changeRoleBudget(
+                              role,
+                              Number.isFinite(
+                                value,
+                              )
+                                ? Math.max(
+                                    0,
+                                    Math.trunc(
+                                      value,
+                                    ),
+                                  )
+                                : 0,
+                            );
+                          }}
+                          style={
+                            compactInputStyle
+                          }
+                        />
+                      </label>
+
+                      <label
+                        style={
+                          compactFieldStyle
+                        }
+                      >
+                        <span>
+                          %
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          step={0.1}
+                          value={Math.round(
+                            getRoleBudgetPercentage(
+                              role,
+                            ) * 10,
+                          ) / 10}
+                          onChange={(
+                            event,
+                          ) =>
+                            changeRoleBudgetPercentage(
+                              role,
+                              event
+                                .currentTarget
+                                .valueAsNumber,
+                            )
+                          }
+                          style={
+                            compactInputStyle
+                          }
+                        />
+                      </label>
+                    </div>
+                  ),
+                )}
+              </div>
+            </section>
+          )}
         </div>
       </>
     );
@@ -669,17 +958,11 @@ export default function AuctionSettingsPanel({
     return (
       <>
         <SectionHeader
-          title="Tabella giocatori"
-          description="Scegli quali colonne mostrare durante l’asta."
-          meta={`${settings.visibleColumnKeys.length}/${allColumns.length} visibili`}
+          title="Tabella listone"
+          description="Scegli le colonne da mostrare. L’ordine continua a essere gestito trascinando le intestazioni direttamente nella pagina dell’asta."
         />
 
-        <div style={tableInfoStyle}>
-          L’ordine delle colonne si modifica trascinando le
-          intestazioni direttamente nella pagina dell’asta.
-        </div>
-
-        <div style={utilityButtonsStyle}>
+        <div style={toolbarStyle}>
           <button
             type="button"
             onClick={showAllColumns}
@@ -690,40 +973,41 @@ export default function AuctionSettingsPanel({
 
           <button
             type="button"
-            onClick={restoreDefaultColumns}
+            onClick={
+              restoreDefaultColumns
+            }
             style={secondaryButtonStyle}
           >
             Ripristina predefinite
           </button>
         </div>
 
-        <section style={columnSectionStyle}>
-          <h3 style={columnSectionTitleStyle}>
-            Colonne principali
-          </h3>
+        <ColumnGroup
+          title="Colonne principali"
+        >
+          {renderColumnControls(
+            mainColumns,
+          )}
+        </ColumnGroup>
 
-          <div style={columnButtonsStyle}>
-            {renderColumnControls(mainColumns)}
-          </div>
-        </section>
-
-        <section style={columnSectionStyle}>
-          <h3 style={columnSectionTitleStyle}>
-            Strategie
-          </h3>
-
-          {strategySettingsColumns.length > 0 ? (
-            <div style={columnButtonsStyle}>
-              {renderColumnControls(
-                strategySettingsColumns,
-              )}
-            </div>
+        <ColumnGroup title="Strategie">
+          {strategySettingsColumns.length >
+          0 ? (
+            renderColumnControls(
+              strategySettingsColumns,
+            )
           ) : (
             <p style={emptyTextStyle}>
-              Nessuna colonna strategia rilevata.
+              Nessuna strategia
+              disponibile per{" "}
+              {settings.playerMode ===
+              "classic"
+                ? "Classic"
+                : "Mantra"}
+              .
             </p>
           )}
-        </section>
+        </ColumnGroup>
       </>
     );
   }
@@ -733,21 +1017,29 @@ export default function AuctionSettingsPanel({
       <>
         <SectionHeader
           title="Ripristino"
-          description="Gestisci separatamente i dati dell’asta e le preferenze dell’interfaccia."
+          description="Gestisci separatamente i dati dell’asta e le preferenze."
         />
 
-        <div style={resetListStyle}>
+        <div style={settingsStackStyle}>
           <section
-            className="fantawalter-setting-row"
-            style={resetItemStyle}
+            style={settingBlockStyle}
           >
-            <div style={settingCopyStyle}>
-              <strong style={settingTitleStyle}>
+            <div
+              style={settingCopyStyle}
+            >
+              <strong
+                style={settingTitleStyle}
+              >
                 Azzera asta corrente
               </strong>
-              <span style={settingDescriptionStyle}>
-                Svuota la rosa, il cestino e i prezzi registrati,
-                mantenendo tutte le impostazioni.
+              <span
+                style={
+                  settingDescriptionStyle
+                }
+              >
+                Svuota Rosa, cestino e
+                prezzi registrati senza
+                cambiare le preferenze.
               </span>
             </div>
 
@@ -761,23 +1053,37 @@ export default function AuctionSettingsPanel({
           </section>
 
           <section
-            className="fantawalter-setting-row"
-            style={resetItemStyle}
+            style={settingBlockStyle}
           >
-            <div style={settingCopyStyle}>
-              <strong style={settingTitleStyle}>
+            <div
+              style={settingCopyStyle}
+            >
+              <strong
+                style={settingTitleStyle}
+              >
                 Ripristina impostazioni
               </strong>
-              <span style={settingDescriptionStyle}>
-                Ripristina budget, limiti e colonne senza
-                cancellare i giocatori già acquistati.
+              <span
+                style={
+                  settingDescriptionStyle
+                }
+              >
+                Ripristina Classic, 8
+                partecipanti, nomod,
+                budget e colonne
+                predefinite. La Rosa non
+                viene cancellata.
               </span>
             </div>
 
             <button
               type="button"
-              onClick={resetPreferences}
-              style={secondaryButtonStyle}
+              onClick={
+                resetPreferences
+              }
+              style={
+                secondaryButtonStyle
+              }
             >
               Ripristina impostazioni
             </button>
@@ -791,8 +1097,6 @@ export default function AuctionSettingsPanel({
     switch (activeSection) {
       case "general":
         return renderGeneralSection();
-      case "squad":
-        return renderSquadSection();
       case "table":
         return renderTableSection();
       case "reset":
@@ -812,11 +1116,10 @@ export default function AuctionSettingsPanel({
             position: static !important;
             display: flex !important;
             overflow-x: auto !important;
-            padding: 8px !important;
           }
 
           .fantawalter-settings-nav button {
-            min-width: max-content !important;
+            min-width: 190px !important;
           }
         }
 
@@ -825,40 +1128,23 @@ export default function AuctionSettingsPanel({
             padding: 12px !important;
           }
 
-          .fantawalter-settings-header {
-            align-items: flex-start !important;
-            flex-direction: column !important;
-          }
-
-          .fantawalter-setting-row {
-            align-items: flex-start !important;
-            flex-direction: column !important;
-          }
-
-          .fantawalter-setting-row input,
-          .fantawalter-setting-row button {
-            width: 100% !important;
-          }
-
+          .fantawalter-settings-header,
+          .fantawalter-setting-block,
           .fantawalter-budget-header {
             align-items: stretch !important;
             flex-direction: column !important;
+          }
+
+          .fantawalter-settings-content {
+            padding: 18px !important;
           }
 
           .fantawalter-role-budget-row {
             grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
           }
 
-          .fantawalter-budget-columns-header {
-            display: none !important;
-          }
-
-          .fantawalter-role-budget-row > span:first-child {
+          .fantawalter-role-budget-label {
             grid-column: 1 / -1 !important;
-          }
-
-          .fantawalter-settings-content {
-            padding: 18px !important;
           }
         }
       `}</style>
@@ -867,7 +1153,10 @@ export default function AuctionSettingsPanel({
         className="fantawalter-settings-page"
         style={shellStyle}
       >
-        <Link href="/" style={backLinkStyle}>
+        <Link
+          href="/"
+          style={backLinkStyle}
+        >
           ← Torna all’asta
         </Link>
 
@@ -876,13 +1165,20 @@ export default function AuctionSettingsPanel({
           style={headerStyle}
         >
           <div>
-            <h1 style={titleStyle}>Configurazione</h1>
+            <h1 style={titleStyle}>
+              Configurazione
+            </h1>
             <p style={subtitleStyle}>
-              Gestisci le impostazioni della tua asta.
+              Gestisci le preferenze
+              della tua lega e
+              dell’interfaccia.
             </p>
           </div>
 
-          <span role="status" style={saveStatusStyle}>
+          <span
+            role="status"
+            style={saveStatusStyle}
+          >
             {storageReady
               ? "✓ Modifiche salvate automaticamente"
               : "Caricamento impostazioni…"}
@@ -891,49 +1187,57 @@ export default function AuctionSettingsPanel({
 
         <div
           className="fantawalter-settings-layout"
-          style={settingsLayoutStyle}
+          style={layoutStyle}
         >
           <nav
             className="fantawalter-settings-nav"
             aria-label="Sezioni configurazione"
             style={navigationStyle}
           >
-            {SETTINGS_SECTIONS.map((section) => {
-              const isActive =
-                activeSection === section.key;
+            {SETTINGS_SECTIONS.map(
+              (section) => {
+                const isActive =
+                  activeSection ===
+                  section.key;
 
-              return (
-                <button
-                  key={section.key}
-                  type="button"
-                  onClick={() =>
-                    setActiveSection(section.key)
-                  }
-                  aria-current={
-                    isActive ? "page" : undefined
-                  }
-                  style={{
-                    ...navigationButtonStyle,
-                    ...(isActive
-                      ? navigationButtonActiveStyle
-                      : {}),
-                  }}
-                >
-                  <span style={navigationLabelStyle}>
-                    {section.label}
-                  </span>
-
-                  <span style={navigationDescriptionStyle}>
-                    {section.description}
-                  </span>
-                </button>
-              );
-            })}
+                return (
+                  <button
+                    key={section.key}
+                    type="button"
+                    onClick={() =>
+                      setActiveSection(
+                        section.key,
+                      )
+                    }
+                    aria-current={
+                      isActive
+                        ? "page"
+                        : undefined
+                    }
+                    style={{
+                      ...navigationButtonStyle,
+                      ...(isActive
+                        ? navigationButtonActiveStyle
+                        : {}),
+                    }}
+                  >
+                    <strong>
+                      {section.label}
+                    </strong>
+                    <span>
+                      {
+                        section.description
+                      }
+                    </span>
+                  </button>
+                );
+              },
+            )}
           </nav>
 
           <section
             className="fantawalter-settings-content"
-            style={contentPanelStyle}
+            style={contentStyle}
           >
             {renderActiveSection()}
           </section>
@@ -943,32 +1247,63 @@ export default function AuctionSettingsPanel({
   );
 }
 
-interface SectionHeaderProps {
-  title: string;
-  description: string;
-  meta?: string;
-}
-
 function SectionHeader({
   title,
   description,
   meta,
-}: SectionHeaderProps) {
+}: {
+  title: string;
+  description?: string;
+  meta?: string;
+}) {
   return (
-    <header style={sectionHeaderStyle}>
+    <header
+      style={sectionHeaderStyle}
+    >
       <div>
-        <h2 style={sectionTitleStyle}>{title}</h2>
-        <p style={sectionDescriptionStyle}>
-          {description}
-        </p>
+        <h2 style={sectionTitleStyle}>
+          {title}
+        </h2>
+        {description && (
+          <p
+            style={sectionDescriptionStyle}
+          >
+            {description}
+          </p>
+        )}
       </div>
 
       {meta && (
-        <span style={sectionMetaStyle}>{meta}</span>
+        <span style={metaStyle}>
+          {meta}
+        </span>
       )}
     </header>
   );
 }
+
+function ColumnGroup({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section style={columnGroupStyle}>
+      <h3 style={columnGroupTitleStyle}>
+        {title}
+      </h3>
+      <div style={columnButtonsStyle}>
+        {children}
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------
+ * STILI
+ * ------------------------------------------------------------------ */
 
 const pageStyle: CSSProperties = {
   minHeight: "100vh",
@@ -989,16 +1324,13 @@ const backLinkStyle: CSSProperties = {
   minHeight: "38px",
   marginBottom: "18px",
   padding: "0 13px",
-  borderWidth: "1px",
-  borderStyle: "solid",
-  borderColor: "var(--fw-accent-border)",
+  border: "1px solid var(--fw-accent-border)",
   borderRadius: "7px",
   background: "var(--fw-panel-bg)",
   color: "var(--fw-accent-text)",
   fontSize: "0.92rem",
   fontWeight: 800,
   textDecoration: "none",
-  boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)",
 };
 
 const headerStyle: CSSProperties = {
@@ -1027,9 +1359,7 @@ const saveStatusStyle: CSSProperties = {
   alignItems: "center",
   minHeight: "38px",
   padding: "0 13px",
-  borderWidth: "1px",
-  borderStyle: "solid",
-  borderColor: "var(--fw-success-border)",
+  border: "1px solid var(--fw-success-border)",
   borderRadius: "999px",
   background: "var(--fw-success-soft)",
   color: "var(--fw-success-text)",
@@ -1038,39 +1368,32 @@ const saveStatusStyle: CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-const settingsLayoutStyle: CSSProperties = {
+const layoutStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "230px minmax(0, 1fr)",
-  gap: "16px",
+  gridTemplateColumns: "250px minmax(0, 1fr)",
+  gap: "18px",
   alignItems: "start",
 };
 
 const navigationStyle: CSSProperties = {
   position: "sticky",
-  top: "20px",
-  display: "flex",
-  flexDirection: "column",
-  gap: "5px",
+  top: "18px",
+  display: "grid",
+  gap: "8px",
   padding: "8px",
-  borderWidth: "1px",
-  borderStyle: "solid",
-  borderColor: "var(--fw-border)",
-  borderRadius: "10px",
+  border: "1px solid var(--fw-border)",
+  borderRadius: "12px",
   background: "var(--fw-panel-bg)",
-  boxShadow: "var(--fw-shadow-soft)",
 };
 
 const navigationButtonStyle: CSSProperties = {
-  width: "100%",
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "flex-start",
-  gap: "3px",
-  padding: "11px 12px",
+  display: "grid",
+  gap: "4px",
+  padding: "13px 14px",
   borderWidth: "1px",
   borderStyle: "solid",
   borderColor: "transparent",
-  borderRadius: "7px",
+  borderRadius: "9px",
   background: "transparent",
   color: "var(--fw-text-secondary)",
   textAlign: "left",
@@ -1083,39 +1406,21 @@ const navigationButtonActiveStyle: CSSProperties = {
   color: "var(--fw-accent-text)",
 };
 
-const navigationLabelStyle: CSSProperties = {
-  fontWeight: 800,
-  lineHeight: 1.2,
-};
-
-const navigationDescriptionStyle: CSSProperties = {
-  color: "var(--fw-text-muted)",
-  fontSize: "0.75rem",
-  lineHeight: 1.25,
-};
-
-const contentPanelStyle: CSSProperties = {
+const contentStyle: CSSProperties = {
   minWidth: 0,
-  minHeight: "520px",
-  padding: "26px",
-  borderWidth: "1px",
-  borderStyle: "solid",
-  borderColor: "var(--fw-border)",
-  borderRadius: "10px",
+  padding: "24px",
+  border: "1px solid var(--fw-border)",
+  borderRadius: "12px",
   background: "var(--fw-panel-bg)",
-  boxShadow: "var(--fw-shadow-soft)",
 };
 
 const sectionHeaderStyle: CSSProperties = {
   display: "flex",
-  alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: "16px",
+  gap: "18px",
+  marginBottom: "22px",
   paddingBottom: "18px",
-  marginBottom: "6px",
-  borderBottomWidth: "1px",
-  borderBottomStyle: "solid",
-  borderBottomColor: "var(--fw-border-soft)",
+  borderBottom: "1px solid var(--fw-border)",
 };
 
 const sectionTitleStyle: CSSProperties = {
@@ -1125,44 +1430,42 @@ const sectionTitleStyle: CSSProperties = {
 };
 
 const sectionDescriptionStyle: CSSProperties = {
-  margin: "6px 0 0",
+  maxWidth: "720px",
+  margin: "7px 0 0",
   color: "var(--fw-text-muted)",
-  fontSize: "0.9rem",
-  lineHeight: 1.45,
+  lineHeight: 1.5,
 };
 
-const sectionMetaStyle: CSSProperties = {
-  flexShrink: 0,
-  padding: "5px 9px",
+const metaStyle: CSSProperties = {
+  alignSelf: "flex-start",
+  padding: "7px 10px",
   borderRadius: "999px",
-  background: "var(--fw-accent-soft)",
-  color: "var(--fw-accent-text)",
-  fontSize: "0.78rem",
+  background: "var(--fw-control-muted-bg)",
+  color: "var(--fw-text-secondary)",
+  fontSize: "0.82rem",
   fontWeight: 800,
+  whiteSpace: "nowrap",
 };
 
-const settingsListStyle: CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
+const settingsStackStyle: CSSProperties = {
+  display: "grid",
+  gap: "12px",
 };
 
-const settingRowStyle: CSSProperties = {
+const settingBlockStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: "24px",
-  padding: "18px 0",
-  borderBottomWidth: "1px",
-  borderBottomStyle: "solid",
-  borderBottomColor: "var(--fw-border-soft)",
+  gap: "20px",
+  padding: "17px",
+  border: "1px solid var(--fw-border)",
+  borderRadius: "10px",
+  background: "var(--fw-card-bg, var(--fw-panel-bg))",
 };
 
-
 const settingCopyStyle: CSSProperties = {
-  minWidth: 0,
-  display: "flex",
-  flexDirection: "column",
-  gap: "4px",
+  display: "grid",
+  gap: "5px",
 };
 
 const settingTitleStyle: CSSProperties = {
@@ -1171,314 +1474,239 @@ const settingTitleStyle: CSSProperties = {
 };
 
 const settingDescriptionStyle: CSSProperties = {
-  maxWidth: "560px",
+  maxWidth: "650px",
   color: "var(--fw-text-muted)",
-  fontSize: "0.82rem",
-  lineHeight: 1.4,
+  fontSize: "0.88rem",
+  lineHeight: 1.45,
 };
 
-const numberControlStyle: CSSProperties = {
-  width: "110px",
+const segmentedControlStyle: CSSProperties = {
+  display: "inline-flex",
+  gap: "6px",
+  flexWrap: "wrap",
+  justifyContent: "flex-end",
+};
+
+const segmentButtonStyle: CSSProperties = {
+  minWidth: "78px",
   minHeight: "40px",
-  flexShrink: 0,
-  padding: "7px 10px",
+  padding: "0 14px",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "var(--fw-border-strong)",
+  borderRadius: "8px",
+  background: "var(--fw-panel-bg)",
+  color: "var(--fw-text-secondary)",
+  fontWeight: 800,
+  cursor: "pointer",
+};
+
+const segmentButtonActiveStyle: CSSProperties = {
+  borderColor: "var(--fw-accent-border)",
+  background: "var(--fw-accent)",
+  color: "#111",
+  boxShadow: "0 1px 3px rgba(0,0,0,.12)",
+};
+
+const compactRoleLimitsStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(4, minmax(72px, 1fr))",
+  gap: "8px",
+  width: "min(430px, 100%)",
+};
+
+const compactRoleLimitStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "24px minmax(0, 1fr)",
+  alignItems: "center",
+  gap: "5px",
+};
+
+const compactRoleCodeStyle: CSSProperties = {
+  color: "var(--fw-heading)",
+  fontSize: "0.88rem",
+  fontWeight: 900,
+  textAlign: "center",
+};
+
+const compactRoleInputStyle: CSSProperties = {
+  width: "100%",
+  minWidth: 0,
+  minHeight: "38px",
+  padding: "0 7px",
   borderWidth: "1px",
   borderStyle: "solid",
   borderColor: "var(--fw-border-strong)",
   borderRadius: "7px",
-  background: "var(--fw-panel-bg)",
+  background:
+    "var(--fw-input-bg, var(--fw-panel-bg))",
   color: "var(--fw-text)",
-  fontSize: "0.95rem",
-  textAlign: "right",
-  outline: "none",
+  fontWeight: 800,
 };
 
-const switchButtonStyle: CSSProperties = {
-  minWidth: "126px",
+const numberInputStyle: CSSProperties = {
+  width: "120px",
   minHeight: "40px",
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: "9px",
-  padding: "6px 10px",
+  padding: "0 10px",
+  border: "1px solid var(--fw-border-strong)",
+  borderRadius: "8px",
+  background: "var(--fw-input-bg, var(--fw-panel-bg))",
+  color: "var(--fw-text)",
+  fontWeight: 800,
+};
+
+const toggleButtonStyle: CSSProperties = {
+  minWidth: "110px",
+  minHeight: "40px",
+  padding: "0 14px",
   borderWidth: "1px",
   borderStyle: "solid",
   borderColor: "var(--fw-border-strong)",
   borderRadius: "999px",
   background: "var(--fw-control-muted-bg)",
-  color: "var(--fw-text-secondary)",
+  color: "var(--fw-control-muted-text)",
   fontWeight: 800,
   cursor: "pointer",
 };
 
-const switchButtonActiveStyle: CSSProperties = {
+const toggleButtonActiveStyle: CSSProperties = {
   borderColor: "var(--fw-success-border)",
   background: "var(--fw-success-soft)",
   color: "var(--fw-success-text)",
 };
 
-const switchTrackStyle: CSSProperties = {
-  width: "42px",
-  height: "22px",
-  display: "inline-flex",
-  alignItems: "center",
-  padding: "2px",
-  borderRadius: "999px",
-  background: "var(--fw-border-strong)",
+const budgetPanelStyle: CSSProperties = {
+  padding: "17px",
+  border: "1px solid var(--fw-border)",
+  borderRadius: "10px",
 };
 
-const switchThumbStyle: CSSProperties = {
-  width: "18px",
-  height: "18px",
-  display: "block",
-  borderRadius: "50%",
-  background: "#ffffff",
-  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.22)",
-  transition: "transform 0.18s ease",
-};
-
-const subsectionStyle: CSSProperties = {
-  marginTop: "24px",
-  padding: "18px",
-  borderWidth: "1px",
-  borderStyle: "solid",
-  borderColor: "var(--fw-border)",
-  borderRadius: "9px",
-  background: "var(--fw-panel-soft)",
-};
-
-const subsectionHeaderStyle: CSSProperties = {
+const budgetHeaderStyle: CSSProperties = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: "14px",
-  marginBottom: "10px",
+  gap: "16px",
+  marginBottom: "14px",
 };
 
-const roleBudgetColumnsHeaderStyle: CSSProperties = {
+
+const budgetSummaryStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "minmax(150px, 1fr) 118px 118px",
-  gap: "10px",
-  alignItems: "center",
-  padding: "0 0 6px",
+  gap: "4px",
+  color: "var(--fw-text-secondary)",
+  fontSize: "0.82rem",
+  textAlign: "right",
 };
 
-const roleBudgetColumnLabelStyle: CSSProperties = {
-  color: "var(--fw-text-muted)",
-  fontSize: "0.72rem",
-  fontWeight: 800,
-  textAlign: "center",
-  textTransform: "uppercase",
-  letterSpacing: "0.03em",
+const roleBudgetGridStyle: CSSProperties = {
+  display: "grid",
+  gap: "8px",
 };
 
 const roleBudgetRowStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "minmax(150px, 1fr) 118px 118px",
+  gridTemplateColumns: "minmax(160px, 1fr) 120px 120px",
   gap: "10px",
+  alignItems: "end",
+  paddingTop: "8px",
+  borderTop: "1px solid var(--fw-border)",
+};
+
+const roleBudgetLabelStyle: CSSProperties = {
+  display: "flex",
   alignItems: "center",
-  minHeight: "54px",
-  padding: "7px 0",
-  borderBottomWidth: "1px",
-  borderBottomStyle: "solid",
-  borderBottomColor: "#e3e9ee",
+  gap: "10px",
+  minHeight: "40px",
 };
 
-const roleBudgetInputWrapStyle: CSSProperties = {
-  position: "relative",
-  display: "block",
-  minWidth: 0,
-};
-
-const roleBudgetNumberControlStyle: CSSProperties = {
-  ...numberControlStyle,
-  width: "100%",
-  minWidth: 0,
-  textAlign: "right",
-};
-
-const roleBudgetPrefixStyle: CSSProperties = {
-  position: "absolute",
-  top: "50%",
-  left: "10px",
-  zIndex: 1,
-  transform: "translateY(-50%)",
-  color: "var(--fw-text-secondary)",
-  fontSize: "0.82rem",
-  fontWeight: 900,
-  pointerEvents: "none",
-};
-
-const roleBudgetSuffixStyle: CSSProperties = {
-  position: "absolute",
-  top: "50%",
-  right: "10px",
-  transform: "translateY(-50%)",
-  color: "var(--fw-text-secondary)",
-  fontSize: "0.82rem",
-  fontWeight: 900,
-  pointerEvents: "none",
-};
-
-const subsectionTitleStyle: CSSProperties = {
-  margin: 0,
-  color: "var(--fw-heading)",
-  fontSize: "1.02rem",
-};
-
-const subsectionDescriptionStyle: CSSProperties = {
-  margin: "5px 0 0",
+const compactFieldStyle: CSSProperties = {
+  display: "grid",
+  gap: "4px",
   color: "var(--fw-text-muted)",
-  fontSize: "0.82rem",
-};
-
-const budgetBadgeStyle: CSSProperties = {
-  flexShrink: 0,
-  padding: "5px 9px",
-  borderRadius: "999px",
-  background: "var(--fw-accent-soft)",
-  color: "var(--fw-accent-text)",
-  fontSize: "0.78rem",
-  fontWeight: 800,
-};
-
-const budgetBadgeWarningStyle: CSSProperties = {
-  background: "var(--fw-danger-soft)",
-  color: "var(--fw-danger-text)",
-};
-
-const roleBudgetListStyle: CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-};
-
-const roleNameStyle: CSSProperties = {
-  color: "var(--fw-text-secondary)",
+  fontSize: "0.76rem",
   fontWeight: 700,
 };
 
-const budgetStatusStyle: CSSProperties = {
-  marginTop: "14px",
-  padding: "10px 12px",
-  borderRadius: "7px",
-  background: "var(--fw-info-soft)",
-  color: "var(--fw-text-secondary)",
-  fontSize: "0.84rem",
-};
-
-const budgetStatusWarningStyle: CSSProperties = {
-  background: "var(--fw-danger-soft)",
-  color: "var(--fw-danger-text)",
-};
-
-const roleLimitsListStyle: CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-};
-
-const tableInfoStyle: CSSProperties = {
-  margin: "18px 0 14px",
-  padding: "11px 12px",
-  borderRadius: "7px",
-  background: "var(--fw-panel-muted)",
-  color: "var(--fw-text-secondary)",
-  fontSize: "0.84rem",
-  lineHeight: 1.4,
-};
-
-const utilityButtonsStyle: CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: "8px",
-  marginBottom: "20px",
-};
-
-const secondaryButtonStyle: CSSProperties = {
+const compactInputStyle: CSSProperties = {
+  width: "100%",
   minHeight: "38px",
-  padding: "0 12px",
-  borderWidth: "1px",
-  borderStyle: "solid",
-  borderColor: "var(--fw-border-strong)",
-  borderRadius: "6px",
-  background: "var(--fw-panel-bg)",
-  color: "var(--fw-text-secondary)",
-  fontWeight: 700,
-  cursor: "pointer",
+  padding: "0 9px",
+  border: "1px solid var(--fw-border-strong)",
+  borderRadius: "7px",
+  background: "var(--fw-input-bg, var(--fw-panel-bg))",
+  color: "var(--fw-text)",
 };
 
-const columnSectionStyle: CSSProperties = {
+
+
+
+const toolbarStyle: CSSProperties = {
+  display: "flex",
+  gap: "8px",
+  flexWrap: "wrap",
+  marginBottom: "18px",
+};
+
+const columnGroupStyle: CSSProperties = {
   padding: "16px 0",
-  borderTopWidth: "1px",
-  borderTopStyle: "solid",
-  borderTopColor: "var(--fw-border-soft)",
+  borderTop: "1px solid var(--fw-border)",
 };
 
-const columnSectionTitleStyle: CSSProperties = {
-  margin: "0 0 12px",
-  color: "var(--fw-text-secondary)",
-  fontSize: "0.95rem",
+const columnGroupTitleStyle: CSSProperties = {
+  margin: "0 0 10px",
+  color: "var(--fw-heading)",
+  fontSize: "0.94rem",
 };
 
 const columnButtonsStyle: CSSProperties = {
   display: "flex",
-  flexWrap: "wrap",
   gap: "8px",
+  flexWrap: "wrap",
 };
 
-const columnButtonStyle: CSSProperties = {
+const choiceButtonStyle: CSSProperties = {
   minHeight: "36px",
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "7px",
-  padding: "6px 10px",
+  padding: "0 12px",
   borderWidth: "1px",
   borderStyle: "solid",
   borderColor: "var(--fw-border)",
-  borderRadius: "6px",
-  fontWeight: 700,
+  borderRadius: "7px",
+  background: "var(--fw-control-muted-bg)",
+  color: "var(--fw-control-muted-text)",
+  fontWeight: 750,
   cursor: "pointer",
 };
 
-const columnStateDotStyle: CSSProperties = {
-  width: "8px",
-  height: "8px",
-  flexShrink: 0,
-  borderRadius: "50%",
+const choiceButtonActiveStyle: CSSProperties = {
+  borderColor: "var(--fw-accent-border)",
+  background: "var(--fw-accent-soft)",
+  color: "var(--fw-accent-text)",
+};
+
+const secondaryButtonStyle: CSSProperties = {
+  minHeight: "38px",
+  padding: "0 13px",
+  border: "1px solid var(--fw-border-strong)",
+  borderRadius: "7px",
+  background: "var(--fw-panel-bg)",
+  color: "var(--fw-text-secondary)",
+  fontWeight: 800,
+  cursor: "pointer",
+};
+
+const dangerButtonStyle: CSSProperties = {
+  minHeight: "40px",
+  padding: "0 14px",
+  border: "1px solid #c0392b",
+  borderRadius: "7px",
+  background: "#e74c3c",
+  color: "#fff",
+  fontWeight: 800,
+  cursor: "pointer",
 };
 
 const emptyTextStyle: CSSProperties = {
   margin: 0,
   color: "var(--fw-text-muted)",
-  fontSize: "0.84rem",
-};
-
-const resetListStyle: CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  marginTop: "8px",
-};
-
-const resetItemStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "24px",
-  padding: "22px 0",
-  borderBottomWidth: "1px",
-  borderBottomStyle: "solid",
-  borderBottomColor: "var(--fw-border-soft)",
-};
-
-const dangerButtonStyle: CSSProperties = {
-  minHeight: "38px",
-  flexShrink: 0,
-  padding: "0 13px",
-  borderWidth: "1px",
-  borderStyle: "solid",
-  borderColor: "#b63125",
-  borderRadius: "6px",
-  background: "#c0392b",
-  color: "#ffffff",
-  fontWeight: 800,
-  cursor: "pointer",
+  fontSize: "0.9rem",
 };

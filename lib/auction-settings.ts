@@ -12,7 +12,13 @@ export interface ColumnDefinition {
   label: string;
 }
 
+export type PlayerMode = "classic" | "mantra";
+export type LeagueSize = 8 | 10 | 12;
+
 export interface PersistedAuctionState {
+  playerMode?: unknown;
+  leagueSize?: unknown;
+  defenseModifier?: unknown;
   initialBudget?: unknown;
   purchasedPlayerKeys?: unknown;
   deletedPlayerKeys?: unknown;
@@ -27,6 +33,15 @@ export interface PersistedAuctionState {
 }
 
 export interface AuctionSettings {
+  playerMode: PlayerMode;
+  leagueSize: LeagueSize;
+
+  /*
+   * Predisposto per la selezione mod / nomod.
+   * Per ora non viene mostrato nella pagina Configurazione.
+   */
+  defenseModifier: boolean;
+
   initialBudget: number;
   recordPurchasePrice: boolean;
   roleLimits: RoleLimits;
@@ -37,6 +52,62 @@ export interface AuctionSettings {
 
 export const AUCTION_STORAGE_KEY =
   "fantawalter-auction-state-v1";
+
+export const PLAYER_MODE_COOKIE =
+  "fantawalter-player-mode";
+
+export const LEAGUE_SIZE_COOKIE =
+  "fantawalter-league-size";
+
+export const DEFENSE_MODIFIER_COOKIE =
+  "fantawalter-defense-modifier";
+
+/*
+ * Scelta di migrazione: chi non ha ancora impostato la dimensione
+ * della lega viene inizializzato a 10 partecipanti.
+ */
+export const DEFAULT_LEAGUE_SIZE: LeagueSize = 8;
+
+export function resolvePlayerMode(
+  value: unknown,
+): PlayerMode {
+  return value === "mantra" ? "mantra" : "classic";
+}
+
+export function resolveLeagueSize(
+  value: unknown,
+): LeagueSize {
+  const parsedValue =
+    typeof value === "number"
+      ? value
+      : Number(String(value ?? "").trim());
+
+  return parsedValue === 8 ||
+    parsedValue === 10 ||
+    parsedValue === 12
+    ? parsedValue
+    : DEFAULT_LEAGUE_SIZE;
+}
+
+export function resolveDefenseModifier(
+  value: unknown,
+): boolean {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  const normalizedValue = String(value ?? "")
+    .trim()
+    .toLocaleLowerCase("it");
+
+  return (
+    normalizedValue === "true" ||
+    normalizedValue === "1" ||
+    normalizedValue === "y" ||
+    normalizedValue === "yes" ||
+    normalizedValue === "mod"
+  );
+}
 
 export const BASE_COLUMNS: ColumnDefinition[] = [
   { key: "giocatore", label: "Giocatore" },
@@ -58,6 +129,7 @@ export function formatStrategyLabel(
 ): string {
   return columnName
     .replace(/^strategia_/, "")
+    .replace(/_(classic|mantra)$/i, "")
     .split("_")
     .filter(Boolean)
     .map(
@@ -189,10 +261,6 @@ function readColumnKeys(
     return [];
   }
 
-  /*
-   * Migrazione dalla precedente configurazione, nella quale
-   * Nome e Squadra erano due colonne separate.
-   */
   const migratedKeys = value
     .filter((item): item is string => typeof item === "string")
     .map((item) =>
@@ -214,6 +282,9 @@ function readColumnKeys(
 
 export function createDefaultAuctionSettings(): AuctionSettings {
   return {
+    playerMode: "classic",
+    leagueSize: DEFAULT_LEAGUE_SIZE,
+    defenseModifier: false,
     initialBudget: 500,
     recordPurchasePrice: false,
     roleLimits: { ...DEFAULT_ROLE_LIMITS },
@@ -237,6 +308,11 @@ export function resolveAuctionSettings(
   );
 
   return {
+    playerMode: resolvePlayerMode(state.playerMode),
+    leagueSize: resolveLeagueSize(state.leagueSize),
+    defenseModifier: resolveDefenseModifier(
+      state.defenseModifier,
+    ),
     initialBudget: readPositiveNumber(
       state.initialBudget,
       500,
@@ -310,6 +386,7 @@ export function updatePersistedAuctionState(
   patch: Partial<PersistedAuctionState>,
 ): void {
   const currentState = loadPersistedAuctionState();
+
   savePersistedAuctionState({
     ...currentState,
     ...patch,
@@ -320,6 +397,9 @@ export function saveAuctionSettings(
   settings: AuctionSettings,
 ): void {
   updatePersistedAuctionState({
+    playerMode: settings.playerMode,
+    leagueSize: settings.leagueSize,
+    defenseModifier: settings.defenseModifier,
     initialBudget: settings.initialBudget,
     recordPurchasePrice: settings.recordPurchasePrice,
     roleLimits: settings.roleLimits,

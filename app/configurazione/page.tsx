@@ -1,24 +1,50 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 
 import AuctionSettingsPanel from "@/components/auction-settings";
 import {
-  getStrategyColumns,
-  loadPlayers,
-} from "@/lib/players";
+  DEFENSE_MODIFIER_COOKIE,
+  LEAGUE_SIZE_COOKIE,
+  PLAYER_MODE_COOKIE,
+  resolveDefenseModifier,
+  resolveLeagueSize,
+  resolvePlayerMode,
+} from "@/lib/auction-settings";
+import { loadStrategyColumns } from "@/lib/players";
 
 export const metadata: Metadata = {
-  title: "Configurazione | FantaWalter",
+  title: "Configurazione | FantaConsigliere",
   description:
-    "Configura budget, composizione della rosa e tabella giocatori di FantaWalter.",
+    "Configura preferenze della lega, composizione della rosa e tabella giocatori di FantaConsigliere.",
 };
 
 export default async function ConfigurationPage() {
-  const players = await loadPlayers();
-  const strategyColumns = getStrategyColumns(players);
+  const cookieStore = await cookies();
+
+  const playerMode = resolvePlayerMode(
+    cookieStore.get(PLAYER_MODE_COOKIE)?.value,
+  );
+
+  const leagueSize = resolveLeagueSize(
+    cookieStore.get(LEAGUE_SIZE_COOKIE)?.value,
+  );
+
+  const defenseModifier =
+    resolveDefenseModifier(
+      cookieStore.get(
+        DEFENSE_MODIFIER_COOKIE,
+      )?.value,
+    );
+
+  const strategyColumns =
+    await loadStrategyColumns(playerMode);
 
   return (
     <AuctionSettingsPanel
       strategyColumns={strategyColumns}
+      playerMode={playerMode}
+      leagueSize={leagueSize}
+      defenseModifier={defenseModifier}
     />
   );
 }
