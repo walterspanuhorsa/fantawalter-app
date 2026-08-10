@@ -1,3 +1,4 @@
+// Versione 1.3
 "use client";
 
 // TOOLTIP_LAYOUT_V3: statistiche a sinistra, prezzi/strategie suddivisi in colonne da massimo 13 righe.
@@ -10,6 +11,7 @@ import {
   parseNumericValue,
 } from "@/lib/budget";
 import type { PlayerRow } from "@/lib/players";
+import type { PlayerMode } from "@/lib/auction-settings";
 import {
   ROLE_PLURAL_LABELS,
   getPlayerKey,
@@ -20,6 +22,7 @@ import {
 } from "@/lib/squad";
 
 interface PlayerTooltipProps {
+  playerMode: PlayerMode;
   player: PlayerRow | null;
   pointerX: number;
   pointerY: number;
@@ -45,6 +48,166 @@ interface PurchaseAlert {
 interface DetailItem {
   label: string;
   value: string;
+}
+
+
+type MantraDepartment = "P" | "D" | "C" | "A";
+
+const MANTRA_DEPARTMENT_ROLES: Record<
+  MantraDepartment,
+  readonly string[]
+> = {
+  P: ["Por"],
+  D: ["Ds", "Dc", "B", "Dd"],
+  C: ["E", "M", "C"],
+  A: ["W", "T", "A", "Pc"],
+};
+
+const MANTRA_DEPARTMENT_LABELS: Record<
+  MantraDepartment,
+  string
+> = {
+  P: "portieri",
+  D: "difensivi",
+  C: "centrocampisti",
+  A: "offensivi",
+};
+
+const MANTRA_PACKAGE_LABELS: Record<
+  Exclude<MantraDepartment, "P">,
+  string
+> = {
+  D: "pacchetto difensivo",
+  C: "pacchetto di centrocampo",
+  A: "pacchetto offensivo",
+};
+
+function getAverageTrendWord(
+  before: number,
+  after: number,
+): "salirebbe" | "scenderebbe" | "resterebbe" {
+  const difference = after - before;
+
+  if (difference > 0.005) {
+    return "salirebbe";
+  }
+
+  if (difference < -0.005) {
+    return "scenderebbe";
+  }
+
+  return "resterebbe";
+}
+
+function buildMantraAverageAlert(
+  metricLabel: "TIT" | "AFF" | "INT",
+  columnName: "titolarita" | "affidabilita" | "integrita",
+  department: Exclude<MantraDepartment, "P">,
+  currentPlayers: PlayerRow[],
+  projectedPlayers: PlayerRow[],
+): PurchaseAlert | null {
+  /*
+   * Evita avvisi prematuri: il pacchetto deve contenere almeno
+   * un giocatore già acquistato e almeno due giocatori dopo
+   * l'ipotetico acquisto.
+   */
+  if (
+    currentPlayers.length < 1 ||
+    projectedPlayers.length < 2
+  ) {
+    return null;
+  }
+
+  const currentAverage = calculateAverage(
+    currentPlayers,
+    columnName,
+  );
+  const projectedAverage = calculateAverage(
+    projectedPlayers,
+    columnName,
+  );
+
+  if (projectedAverage >= 3) {
+    return null;
+  }
+
+  const trend = getAverageTrendWord(
+    currentAverage,
+    projectedAverage,
+  );
+
+  return {
+    level: "red",
+    text:
+      `La media ${metricLabel} del ${MANTRA_PACKAGE_LABELS[department]} ` +
+      `${trend} a ${projectedAverage.toFixed(2)}` +
+      (trend === "scenderebbe"
+        ? "."
+        : ", ma sarebbe ancora bassa."),
+  };
+}
+
+function getMantraRoles(player: PlayerRow): string[] {
+  return String(player.ruolo_mantra ?? "")
+    .split(";")
+    .map((role) => role.trim())
+    .filter(Boolean);
+}
+
+function getMantraDepartments(
+  player: PlayerRow,
+): MantraDepartment[] {
+  const roles = new Set(getMantraRoles(player));
+
+  return (["P", "D", "C", "A"] as MantraDepartment[]).filter(
+    (department) =>
+      MANTRA_DEPARTMENT_ROLES[department].some((role) =>
+        roles.has(role),
+      ),
+  );
+}
+
+function playerBelongsToMantraDepartment(
+  player: PlayerRow,
+  department: MantraDepartment,
+): boolean {
+  return getMantraDepartments(player).includes(department);
+}
+
+function countMantraRoleCoverage(
+  players: PlayerRow[],
+  department: MantraDepartment,
+): Record<string, number> {
+  const counts: Record<string, number> = {};
+
+  for (const role of MANTRA_DEPARTMENT_ROLES[department]) {
+    counts[role] = 0;
+  }
+
+  for (const player of players) {
+    const playerRoles = new Set(getMantraRoles(player));
+
+    for (const role of MANTRA_DEPARTMENT_ROLES[department]) {
+      if (playerRoles.has(role)) {
+        counts[role] += 1;
+      }
+    }
+  }
+
+  return counts;
+}
+
+function getMantraDepartmentPlayers(
+  players: PlayerRow[],
+  department: MantraDepartment,
+): PlayerRow[] {
+  return players.filter((player) =>
+    playerBelongsToMantraDepartment(player, department),
+  );
+}
+
+function isMantraMultiRole(player: PlayerRow): boolean {
+  return getMantraRoles(player).length > 1;
 }
 
 const ROLE_LABELS: Record<PlayerRole, string> = {
@@ -140,6 +303,7 @@ function calculateAverage(
 }
 
 function getPotentialPurchaseAlerts(
+  playerMode: PlayerMode,
   playerToAdd: PlayerRow,
   purchasedPlayers: PlayerRow[],
   roleLimits: RoleLimits,
@@ -241,7 +405,14 @@ function getPotentialPurchaseAlerts(
     (player) => getPlayerRole(player) === role,
   );
 
-  if (temporaryRolePlayers.length >= 2) {
+  if (
+    playerMode === "classic" &&
+    temporaryRolePlayers.length >= 2
+  ) {
+    const currentRolePlayers = purchasedPlayers.filter(
+      (player) => getPlayerRole(player) === role,
+    );
+
     const averageTitolarita = calculateAverage(
       temporaryRolePlayers,
       "titolarita",
@@ -255,12 +426,27 @@ function getPotentialPurchaseAlerts(
       "integrita",
     );
 
+    const currentTitolarita = calculateAverage(
+      currentRolePlayers,
+      "titolarita",
+    );
+    const currentAffidabilita = calculateAverage(
+      currentRolePlayers,
+      "affidabilita",
+    );
+    const currentIntegrita = calculateAverage(
+      currentRolePlayers,
+      "integrita",
+    );
+
     if (averageTitolarita < 3) {
       alerts.push({
         level: "red",
         text:
-          `La media TIT dei ${role} scenderebbe a ` +
-          `${averageTitolarita.toFixed(2)}.`,
+          `La media TIT dei ${role} ${getAverageTrendWord(
+            currentTitolarita,
+            averageTitolarita,
+          )} a ${averageTitolarita.toFixed(2)}.`,
       });
     }
 
@@ -268,8 +454,10 @@ function getPotentialPurchaseAlerts(
       alerts.push({
         level: "red",
         text:
-          `La media AFF dei ${role} scenderebbe a ` +
-          `${averageAffidabilita.toFixed(2)}.`,
+          `La media AFF dei ${role} ${getAverageTrendWord(
+            currentAffidabilita,
+            averageAffidabilita,
+          )} a ${averageAffidabilita.toFixed(2)}.`,
       });
     }
 
@@ -277,15 +465,63 @@ function getPotentialPurchaseAlerts(
       alerts.push({
         level: "red",
         text:
-          `La media INT dei ${role} scenderebbe a ` +
-          `${averageIntegrita.toFixed(2)}.`,
+          `La media INT dei ${role} ${getAverageTrendWord(
+            currentIntegrita,
+            averageIntegrita,
+          )} a ${averageIntegrita.toFixed(2)}.`,
       });
+    }
+  }
+
+  if (playerMode === "mantra") {
+    const playerDepartments = getMantraDepartments(
+      playerToAdd,
+    ).filter(
+      (
+        department,
+      ): department is Exclude<MantraDepartment, "P"> =>
+        department !== "P",
+    );
+
+    for (const department of playerDepartments) {
+      const currentDepartmentPlayers =
+        getMantraDepartmentPlayers(
+          purchasedPlayers,
+          department,
+        );
+
+      const projectedDepartmentPlayers =
+        getMantraDepartmentPlayers(
+          temporarySquad,
+          department,
+        );
+
+      for (const [
+        metricLabel,
+        columnName,
+      ] of [
+        ["TIT", "titolarita"],
+        ["AFF", "affidabilita"],
+        ["INT", "integrita"],
+      ] as const) {
+        const alert = buildMantraAverageAlert(
+          metricLabel,
+          columnName,
+          department,
+          currentDepartmentPlayers,
+          projectedDepartmentPlayers,
+        );
+
+        if (alert) {
+          alerts.push(alert);
+        }
+      }
     }
   }
 
   const playerTeam = String(playerToAdd.team ?? "").trim();
 
-  if (playerTeam && role !== "P") {
+  if (playerMode === "classic" && playerTeam && role !== "P") {
     const teamCountInRole = temporaryRolePlayers.filter(
       (player) => String(player.team ?? "").trim() === playerTeam,
     ).length;
@@ -304,6 +540,165 @@ function getPotentialPurchaseAlerts(
           `Avresti ${teamCountInRole} giocatori del ${playerTeam} ` +
           `nel ruolo ${role}.`,
       });
+    }
+  }
+
+
+  if (playerMode === "mantra") {
+    const candidateDepartments = getMantraDepartments(
+      playerToAdd,
+    );
+
+    /*
+     * Concentrazione per macro-ruolo Mantra:
+     * l'avviso nasce soltanto dal secondo giocatore del reparto.
+     */
+    if (playerTeam) {
+      for (const department of candidateDepartments) {
+        if (department === "P") {
+          continue;
+        }
+
+        const departmentPlayers = getMantraDepartmentPlayers(
+          temporarySquad,
+          department,
+        );
+
+        if (departmentPlayers.length < 2) {
+          continue;
+        }
+
+        const sameTeamCount = departmentPlayers.filter(
+          (player) =>
+            String(player.team ?? "").trim() === playerTeam,
+        ).length;
+
+        if (sameTeamCount >= 3) {
+          alerts.push({
+            level: "red",
+            text:
+              `Avresti ${sameTeamCount} giocatori del ${playerTeam} ` +
+              `tra i ${MANTRA_DEPARTMENT_LABELS[department]}.`,
+          });
+        } else if (sameTeamCount === 2) {
+          alerts.push({
+            level: "orange",
+            text:
+              `Avresti ${sameTeamCount} giocatori del ${playerTeam} ` +
+              `tra i ${MANTRA_DEPARTMENT_LABELS[department]}.`,
+          });
+        }
+      }
+    }
+
+    /*
+     * Saturazione / copertura:
+     * viene valutata soltanto quando il reparto è già almeno
+     * al 60% del limite configurato.
+     */
+    for (const department of candidateDepartments) {
+      if (department === "P") {
+        continue;
+      }
+
+      const departmentPlayers = getMantraDepartmentPlayers(
+        temporarySquad,
+        department,
+      );
+      const configuredLimit = roleLimits[department];
+
+      if (
+        configuredLimit <= 0 ||
+        departmentPlayers.length < 3 ||
+        departmentPlayers.length / configuredLimit < 0.6
+      ) {
+        continue;
+      }
+
+      const coverage = countMantraRoleCoverage(
+        departmentPlayers,
+        department,
+      );
+      const candidateRoles = getMantraRoles(playerToAdd).filter(
+        (roleName) =>
+          MANTRA_DEPARTMENT_ROLES[department].includes(roleName),
+      );
+
+      const uncoveredRoles = MANTRA_DEPARTMENT_ROLES[
+        department
+      ].filter((roleName) => (coverage[roleName] ?? 0) === 0);
+
+      const weakRoles = MANTRA_DEPARTMENT_ROLES[
+        department
+      ].filter((roleName) => (coverage[roleName] ?? 0) <= 1);
+
+      const candidateAlreadyDeep = candidateRoles.length > 0 &&
+        candidateRoles.every(
+          (roleName) => (coverage[roleName] ?? 0) >= 3,
+        );
+
+      if (
+        candidateAlreadyDeep &&
+        weakRoles.some(
+          (roleName) => !candidateRoles.includes(roleName),
+        )
+      ) {
+        alerts.push({
+          level: "yellow",
+          text:
+            `Questo acquisto aumenterebbe ancora la copertura di ` +
+            `${candidateRoles.join("/")} mentre nel reparto hai ancora ` +
+            `poche alternative per ${weakRoles
+              .filter((roleName) => !candidateRoles.includes(roleName))
+              .join(", ")}.`,
+        });
+      }
+
+      const progress =
+        departmentPlayers.length / configuredLimit;
+
+      if (
+        progress >= 0.8 &&
+        uncoveredRoles.length > 0 &&
+        candidateRoles.every(
+          (roleName) => !uncoveredRoles.includes(roleName),
+        )
+      ) {
+        alerts.push({
+          level: "orange",
+          text:
+            `Il reparto è vicino al completamento ma resterebbero senza ` +
+            `copertura naturale: ${uncoveredRoles.join(", ")}.`,
+        });
+      }
+    }
+
+    /*
+     * Polivalenza: nessun avviso nei primi acquisti.
+     * Parte soltanto da 8 giocatori di movimento.
+     */
+    const outfieldPlayers = temporarySquad.filter(
+      (player) => !getMantraRoles(player).includes("Por"),
+    );
+
+    if (
+      outfieldPlayers.length >= 8 &&
+      !isMantraMultiRole(playerToAdd)
+    ) {
+      const multiRoleCount = outfieldPlayers.filter(
+        isMantraMultiRole,
+      ).length;
+      const ratio = multiRoleCount / outfieldPlayers.length;
+
+      if (ratio < 0.25) {
+        alerts.push({
+          level: "yellow",
+          text:
+            `La rosa ha poca polivalenza Mantra (${multiRoleCount}/` +
+            `${outfieldPlayers.length} multiruolo) e questo giocatore ` +
+            `è monoruolo.`,
+        });
+      }
     }
   }
 
@@ -505,6 +900,7 @@ function getAlertIcon(level: AlertLevel): string {
 }
 
 export default function PlayerTooltip({
+  playerMode,
   player,
   pointerX,
   pointerY,
@@ -525,6 +921,7 @@ export default function PlayerTooltip({
   const role = getPlayerRole(player);
   const notes = getPlayerNotes(player);
   const purchaseAlerts = getPotentialPurchaseAlerts(
+    playerMode,
     player,
     purchasedPlayers,
     roleLimits,
@@ -580,7 +977,11 @@ export default function PlayerTooltip({
         <div>
           <strong style={playerNameStyle}>{plainValue(player.nome)}</strong>
           <div style={playerSubtitleStyle}>
-            {role ? ROLE_LABELS[role] : plainValue(player.ruolo)}
+            {playerMode === "mantra"
+              ? getMantraRoles(player).join(" · ") || "-"
+              : role
+                ? ROLE_LABELS[role]
+                : plainValue(player.ruolo)}
             {hasValue(player.team) ? ` · ${String(player.team)}` : ""}
           </div>
         </div>

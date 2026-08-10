@@ -1,3 +1,4 @@
+// Versione 1.3
 "use client";
 
 import Link from "next/link";
@@ -1745,8 +1746,10 @@ const teams = useMemo(() => {
     setIsBinOpen(true);
   }}
   style={filterBinButtonStyle}
+  aria-label="Apri cestino"
+  title="Cestino"
 >
-  🗑️ Cestino
+  🗑️
 
   {deletedPlayers.length > 0 && (
     <span style={binBadgeStyle}>
@@ -2032,6 +2035,7 @@ const teams = useMemo(() => {
           style={rightPanelStyle}
         >
           <SquadPanel
+            playerMode={playerMode}
             purchasedPlayers={purchasedPlayers}
             roleLimits={roleLimits}
             onRemovePlayer={removePurchasedPlayer}
@@ -2045,6 +2049,7 @@ const teams = useMemo(() => {
       </div>
 
       <PlayerTooltip
+        playerMode={playerMode}
         player={hoveredPlayer}
         pointerX={tooltipPointer.x}
         pointerY={tooltipPointer.y}
@@ -2478,18 +2483,20 @@ const playerRoleBadgeStyle: CSSProperties = {
 };
 
 const mantraRoleStackStyle: CSSProperties = {
-  width: "17px",
+  width: "66px",
+  minWidth: "66px",
   flexShrink: 0,
   display: "inline-flex",
-  flexDirection: "column",
+  flexDirection: "row",
   alignItems: "center",
-  justifyContent: "center",
-  gap: "1px",
+  justifyContent: "flex-start",
+  gap: "2px",
 };
 
 const mantraPlayerRoleBadgeStyle: CSSProperties = {
-  width: "16px",
-  height: "16px",
+  width: "20px",
+  minWidth: "20px",
+  height: "20px",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -2498,7 +2505,7 @@ const mantraPlayerRoleBadgeStyle: CSSProperties = {
   fontSize: "0.48rem",
   fontWeight: 900,
   lineHeight: 1,
-  letterSpacing: "-0.02em",
+  letterSpacing: "-0.04em",
   boxShadow:
     "inset 0 0 0 1px rgba(255,255,255,0.48)",
 };
