@@ -1,4 +1,4 @@
-// Versione 1.3
+// Versione 1.4
 "use client";
 
 import Link from "next/link";
@@ -27,6 +27,7 @@ import {
   BASE_COLUMNS,
   DEFAULT_VISIBLE_COLUMNS,
   formatStrategyLabel,
+  SELECTED_AVERAGE_COLUMN_KEY,
   type ColumnDefinition,
   type LeagueSize,
   type PersistedAuctionState,
@@ -136,7 +137,7 @@ const NOTE_ICON_LEGEND = [
 
 const COLUMN_DESCRIPTIONS: Record<string, string> = {
   giocatore:
-    "Mostra il ruolo a sinistra e, a destra, squadra e nome del giocatore.",
+    "Dati sul giocatore",
   titolarita:
     "Titolarità (1–5): un valore di 4 o 5 indica un giocatore stabilmente titolare e difficilmente sostituibile nella propria squadra.",
   affidabilita:
@@ -144,12 +145,14 @@ const COLUMN_DESCRIPTIONS: Record<string, string> = {
   integrita:
     "Integrità (1–5): più il valore è alto, minore è la propensione del giocatore agli infortuni.",
   media_strategie:
-    "Prezzo consigliato medio, espresso in crediti, calcolato sulle valutazioni dei creator esperti.",
+    "Prezzo consigliato medio, espresso in crediti, calcolato sulle valutazioni di tutte le strategie importate dal sistema di tutti i creator.",
+  [SELECTED_AVERAGE_COLUMN_KEY]:
+    "Prezzo consigliato medio, espresso in crediti, calcolato esclusivamente sulle valutazioni degli esperti selezionati nelle impostazioni.",
   pma:
-    "Prezzo medio d’asta: media dei prezzi a cui il giocatore è stato acquistato nelle aste registrate su Fantalab.",
+    "Prezzo medio aste: media dei prezzi a cui il giocatore è stato acquistato nelle aste registrate su Fantalab.",
   note: `Note sintetiche sul giocatore. Legenda: ${NOTE_ICON_LEGEND}`,
   percezione:
-    "Confronta il prezzo medio d’asta con il prezzo consigliato medio: verde se il PMA è almeno il 10% più basso, rosso se è almeno il 10% più alto, grigio se i valori sono in linea o non disponibili.",
+    "Confronta il PMA con il valore Media: verde se il PMA è almeno il 10% più basso; rosso se è almeno il 10% più alto; grigio se i valori sono in linea o non disponibili.",
 };
 
 function getColumnDescription(
@@ -433,6 +436,7 @@ function normalizeReferenceColumnOrder(
   const withoutReferenceColumns = columnKeys.filter(
     (key) =>
       key !== "media_strategie" &&
+      key !== SELECTED_AVERAGE_COLUMN_KEY &&
       key !== "pma",
   );
 
@@ -443,16 +447,46 @@ function normalizeReferenceColumnOrder(
     nextPlayerIndex + 1,
     0,
     "media_strategie",
+    SELECTED_AVERAGE_COLUMN_KEY,
     "pma",
   );
 
   return withoutReferenceColumns;
 }
 
+function calculateSelectedStrategyAverage(
+  player: PlayerRow,
+  selectedStrategyColumns: string[],
+): number | null {
+  const values = selectedStrategyColumns
+    .map((columnKey) =>
+      parseNumericValue(player[columnKey]),
+    )
+    .filter(
+      (value): value is number => value !== null,
+    );
+
+  if (values.length === 0) {
+    return null;
+  }
+
+  // Media aritmetica pura: ogni valore disponibile degli
+  // esperti selezionati partecipa al calcolo. Nessun ordinamento,
+  // taglio degli estremi o esclusione di outlier.
+  return (
+    values.reduce((total, value) => total + value, 0) /
+    values.length
+  );
+}
+
 function getReferenceColumnClassName(
   columnKey: string,
 ): string | undefined {
   if (columnKey === "media_strategie") {
+    return "fantawalter-reference-column fantawalter-media-column";
+  }
+
+  if (columnKey === SELECTED_AVERAGE_COLUMN_KEY) {
     return "fantawalter-reference-column fantawalter-media-column";
   }
 
@@ -686,6 +720,27 @@ export default function AuctionAssistant({
     [strategyColumns],
   );
 
+  const selectedStrategyColumnKeys = useMemo(
+    () =>
+      visibleColumnKeys.filter((columnKey) =>
+        strategyColumnKeySet.has(columnKey),
+      ),
+    [visibleColumnKeys, strategyColumnKeySet],
+  );
+
+  const playersWithSelectedAverage = useMemo(
+    () =>
+      initialPlayers.map((player) => ({
+        ...player,
+        [SELECTED_AVERAGE_COLUMN_KEY]:
+          calculateSelectedStrategyAverage(
+            player,
+            selectedStrategyColumnKeys,
+          ),
+      })),
+    [initialPlayers, selectedStrategyColumnKeys],
+  );
+
   const orderedColumns = useMemo(() => {
     const columnsByKey = new Map(
       allColumns.map((column) => [column.key, column]),
@@ -853,7 +908,20 @@ export default function AuctionAssistant({
           );
 
           if (validVisibleColumns.length > 0) {
-            setVisibleColumnKeys(validVisibleColumns);
+            const selectedStrategyCount =
+              validVisibleColumns.filter((columnKey) =>
+                strategyColumnKeySet.has(columnKey),
+              ).length;
+            const normalizedVisibleColumns =
+              selectedStrategyCount >= 2
+                ? validVisibleColumns
+                : validVisibleColumns.filter(
+                    (columnKey) =>
+                      columnKey !==
+                      SELECTED_AVERAGE_COLUMN_KEY,
+                  );
+
+            setVisibleColumnKeys(normalizedVisibleColumns);
           }
         }
 
@@ -878,7 +946,11 @@ export default function AuctionAssistant({
     return () => {
       window.cancelAnimationFrame(animationFrameId);
     };
-  }, [allowedColumnKeySet, existingPlayerKeySet]);
+  }, [
+    allowedColumnKeySet,
+    existingPlayerKeySet,
+    strategyColumnKeySet,
+  ]);
 
   useEffect(() => {
     if (!storageReady) {
@@ -1058,8 +1130,9 @@ const teams = useMemo(() => {
   const displayedPlayers = useMemo(() => {
     const normalizedSearch = normalizeSearchText(nameSearch);
 
-    const filteredPlayers = initialPlayers.filter((player) => {
-      const playerKey = getPlayerKey(player);
+    const filteredPlayers =
+      playersWithSelectedAverage.filter((player) => {
+        const playerKey = getPlayerKey(player);
 
       if (
         purchasedPlayerKeySet.has(playerKey) ||
@@ -1150,7 +1223,7 @@ const teams = useMemo(() => {
       },
     );
   }, [
-    initialPlayers,
+    playersWithSelectedAverage,
     playerMode,
     roleFilter,
     teamFilter,

@@ -33,6 +33,7 @@ export function isBudgetPercentageColumn(
 ): boolean {
   return (
     columnName === "media_strategie" ||
+    columnName === "media_selezionati" ||
     columnName === "pma" ||
     columnName.startsWith("strategia_")
   );

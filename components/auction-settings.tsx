@@ -22,6 +22,7 @@ import {
   loadPersistedAuctionState,
   resolveAuctionSettings,
   roleLabel,
+  SELECTED_AVERAGE_COLUMN_KEY,
   saveAuctionSettings,
   type AuctionSettings,
   type ColumnDefinition,
@@ -103,6 +104,11 @@ export default function AuctionSettingsPanel({
   const [storageReady, setStorageReady] =
     useState(false);
 
+  const [columnNotice, setColumnNotice] = useState<{
+    tone: "warning" | "success";
+    text: string;
+  } | null>(null);
+
   const [activeSection, setActiveSection] =
     useState<SettingsSection>("general");
 
@@ -131,6 +137,14 @@ export default function AuctionSettingsPanel({
         strategyColumnKeySet.has(column.key),
       ),
     [allColumns, strategyColumnKeySet],
+  );
+
+  const selectedStrategyCount = useMemo(
+    () =>
+      settings.visibleColumnKeys.filter((columnKey) =>
+        strategyColumnKeySet.has(columnKey),
+      ).length,
+    [settings.visibleColumnKeys, strategyColumnKeySet],
   );
 
   const totalPlannedRoleBudget =
@@ -202,6 +216,18 @@ export default function AuctionSettingsPanel({
     saveAuctionSettings(settings);
   }, [settings, storageReady]);
 
+  useEffect(() => {
+    if (!columnNotice) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setColumnNotice(null);
+    }, 5500);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [columnNotice]);
+
   function updateSettings(
     updater: (
       current: AuctionSettings,
@@ -239,14 +265,16 @@ export default function AuctionSettingsPanel({
           (columnKey) =>
             !columnKey.startsWith(
               "strategia_",
-            ),
+            ) &&
+            columnKey !== SELECTED_AVERAGE_COLUMN_KEY,
         ),
       columnOrderKeys:
         settings.columnOrderKeys.filter(
           (columnKey) =>
             !columnKey.startsWith(
               "strategia_",
-            ),
+            ) &&
+            columnKey !== SELECTED_AVERAGE_COLUMN_KEY,
         ),
     };
 
@@ -402,29 +430,81 @@ export default function AuctionSettingsPanel({
   function toggleColumn(
     columnKey: string,
   ): void {
+    const isVisible =
+      settings.visibleColumnKeys.includes(columnKey);
+    const isStrategy =
+      strategyColumnKeySet.has(columnKey);
+
+    if (
+      columnKey === SELECTED_AVERAGE_COLUMN_KEY &&
+      !isVisible &&
+      selectedStrategyCount < 2
+    ) {
+      setColumnNotice({
+        tone: "warning",
+        text:
+          "La colonna Media Selezionati calcola la media solo degli esperti scelti da te. Per attivarla, seleziona almeno due esperti.",
+      });
+      return;
+    }
+
+    if (
+      isStrategy &&
+      !isVisible &&
+      selectedStrategyCount === 1
+    ) {
+      setColumnNotice({
+        tone: "success",
+        text:
+          "Hai selezionato almeno due esperti: ora puoi attivare la colonna Media Selezionati nelle Colonne principali.",
+      });
+    }
+
+    if (
+      isStrategy &&
+      isVisible &&
+      selectedStrategyCount === 2 &&
+      settings.visibleColumnKeys.includes(
+        SELECTED_AVERAGE_COLUMN_KEY,
+      )
+    ) {
+      setColumnNotice({
+        tone: "warning",
+        text:
+          "Media Selezionati è stata disattivata perché sono rimasti meno di due esperti selezionati.",
+      });
+    }
+
     updateSettings((current) => {
-      if (
-        current.visibleColumnKeys.includes(
-          columnKey,
-        )
-      ) {
-        const remainingColumns =
+      if (current.visibleColumnKeys.includes(columnKey)) {
+        let remainingColumns =
           current.visibleColumnKeys.filter(
             (currentColumnKey) =>
-              currentColumnKey !==
-              columnKey,
+              currentColumnKey !== columnKey,
           );
 
-        if (
-          remainingColumns.length === 0
-        ) {
+        if (isStrategy) {
+          const remainingStrategyCount =
+            remainingColumns.filter((currentColumnKey) =>
+              strategyColumnKeySet.has(currentColumnKey),
+            ).length;
+
+          if (remainingStrategyCount < 2) {
+            remainingColumns = remainingColumns.filter(
+              (currentColumnKey) =>
+                currentColumnKey !==
+                SELECTED_AVERAGE_COLUMN_KEY,
+            );
+          }
+        }
+
+        if (remainingColumns.length === 0) {
           return current;
         }
 
         return {
           ...current,
-          visibleColumnKeys:
-            remainingColumns,
+          visibleColumnKeys: remainingColumns,
         };
       }
 
@@ -439,11 +519,33 @@ export default function AuctionSettingsPanel({
   }
 
   function showAllColumns(): void {
+    const canEnableSelectedAverage =
+      strategyColumns.length >= 2;
+    const selectedAverageWasVisible =
+      settings.visibleColumnKeys.includes(
+        SELECTED_AVERAGE_COLUMN_KEY,
+      );
+
+    if (
+      selectedStrategyCount < 2 &&
+      canEnableSelectedAverage
+    ) {
+      setColumnNotice({
+        tone: "success",
+        text:
+          "Hai selezionato almeno due esperti: ora puoi attivare la colonna Media Selezionati nelle Colonne principali.",
+      });
+    }
+
     updateSettings((current) => ({
       ...current,
-      visibleColumnKeys:
-        allColumns.map(
-          (column) => column.key,
+      visibleColumnKeys: allColumns
+        .map((column) => column.key)
+        .filter(
+          (columnKey) =>
+            columnKey !== SELECTED_AVERAGE_COLUMN_KEY ||
+            (canEnableSelectedAverage &&
+              selectedAverageWasVisible),
         ),
     }));
   }
@@ -518,6 +620,9 @@ export default function AuctionSettingsPanel({
         settings.visibleColumnKeys.includes(
           column.key,
         );
+      const isSelectedAverageUnavailable =
+        column.key === SELECTED_AVERAGE_COLUMN_KEY &&
+        selectedStrategyCount < 2;
 
       return (
         <button
@@ -527,8 +632,17 @@ export default function AuctionSettingsPanel({
             toggleColumn(column.key)
           }
           aria-pressed={isVisible}
+          aria-disabled={isSelectedAverageUnavailable}
+          title={
+            isSelectedAverageUnavailable
+              ? "Seleziona almeno due esperti per poter attivare questa colonna."
+              : undefined
+          }
           style={{
             ...choiceButtonStyle,
+            ...(isSelectedAverageUnavailable
+              ? choiceButtonUnavailableStyle
+              : {}),
             ...(isVisible
               ? choiceButtonActiveStyle
               : {}),
@@ -993,7 +1107,7 @@ export default function AuctionSettingsPanel({
             }
             style={secondaryButtonStyle}
           >
-            Ripristina predefinite
+            Rimuovi tutte
           </button>
         </div>
 
@@ -1004,6 +1118,21 @@ export default function AuctionSettingsPanel({
             mainColumns,
           )}
         </ColumnGroup>
+
+        {columnNotice && (
+          <div
+            role="status"
+            aria-live="polite"
+            style={{
+              ...columnNoticeStyle,
+              ...(columnNotice.tone === "success"
+                ? columnNoticeSuccessStyle
+                : columnNoticeWarningStyle),
+            }}
+          >
+            {columnNotice.text}
+          </div>
+        )}
 
         <ColumnGroup title="Strategie">
           {strategySettingsColumns.length >
@@ -1067,42 +1196,7 @@ export default function AuctionSettingsPanel({
             </button>
           </section>
 
-          <section
-            style={settingBlockStyle}
-          >
-            <div
-              style={settingCopyStyle}
-            >
-              <strong
-                style={settingTitleStyle}
-              >
-                Ripristina impostazioni
-              </strong>
-              <span
-                style={
-                  settingDescriptionStyle
-                }
-              >
-                Ripristina Classic, 8
-                partecipanti, nomod,
-                budget e colonne
-                predefinite. La Rosa non
-                viene cancellata.
-              </span>
-            </div>
 
-            <button
-              type="button"
-              onClick={
-                resetPreferences
-              }
-              style={
-                secondaryButtonStyle
-              }
-            >
-              Ripristina impostazioni
-            </button>
-          </section>
         </div>
       </>
     );
@@ -1696,6 +1790,34 @@ const choiceButtonActiveStyle: CSSProperties = {
   borderColor: "var(--fw-accent-border)",
   background: "var(--fw-accent-soft)",
   color: "var(--fw-accent-text)",
+};
+
+const choiceButtonUnavailableStyle: CSSProperties = {
+  opacity: 0.58,
+  cursor: "not-allowed",
+};
+
+const columnNoticeStyle: CSSProperties = {
+  margin: "0 0 12px",
+  padding: "11px 13px",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderRadius: "8px",
+  fontSize: "0.88rem",
+  fontWeight: 700,
+  lineHeight: 1.4,
+};
+
+const columnNoticeSuccessStyle: CSSProperties = {
+  borderColor: "#2e8b57",
+  background: "rgba(46, 139, 87, 0.10)",
+  color: "var(--fw-text)",
+};
+
+const columnNoticeWarningStyle: CSSProperties = {
+  borderColor: "#c98212",
+  background: "rgba(201, 130, 18, 0.10)",
+  color: "var(--fw-text)",
 };
 
 const secondaryButtonStyle: CSSProperties = {

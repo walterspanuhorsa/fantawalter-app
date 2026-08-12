@@ -109,9 +109,16 @@ export function resolveDefenseModifier(
   );
 }
 
+export const SELECTED_AVERAGE_COLUMN_KEY =
+  "media_selezionati";
+
 export const BASE_COLUMNS: ColumnDefinition[] = [
   { key: "giocatore", label: "Giocatore" },
   { key: "media_strategie", label: "Media" },
+  {
+    key: SELECTED_AVERAGE_COLUMN_KEY,
+    label: "Media Selezionati",
+  },
   { key: "pma", label: "PMA" },
   { key: "titolarita", label: "TIT" },
   { key: "affidabilita", label: "AFF" },
@@ -120,9 +127,12 @@ export const BASE_COLUMNS: ColumnDefinition[] = [
   { key: "percezione", label: "Percezione" },
 ];
 
-export const DEFAULT_VISIBLE_COLUMNS = BASE_COLUMNS.map(
-  (column) => column.key,
-);
+export const DEFAULT_VISIBLE_COLUMNS = BASE_COLUMNS
+  .filter(
+    (column) =>
+      column.key !== SELECTED_AVERAGE_COLUMN_KEY,
+  )
+  .map((column) => column.key);
 
 export function formatStrategyLabel(
   columnName: string,
@@ -237,6 +247,7 @@ function normalizeReferenceColumnOrder(
   const withoutReferenceColumns = columnKeys.filter(
     (key) =>
       key !== "media_strategie" &&
+      key !== SELECTED_AVERAGE_COLUMN_KEY &&
       key !== "pma",
   );
 
@@ -247,6 +258,7 @@ function normalizeReferenceColumnOrder(
     nextPlayerIndex + 1,
     0,
     "media_strategie",
+    SELECTED_AVERAGE_COLUMN_KEY,
     "pma",
   );
 
@@ -306,6 +318,18 @@ export function resolveAuctionSettings(
     state.visibleColumnKeys,
     allowedColumnKeySet,
   );
+  const strategyColumnKeySet = new Set(strategyColumns);
+  const selectedStrategyCount =
+    visibleColumnKeys.filter((columnKey) =>
+      strategyColumnKeySet.has(columnKey),
+    ).length;
+  const normalizedVisibleColumnKeys =
+    selectedStrategyCount >= 2
+      ? visibleColumnKeys
+      : visibleColumnKeys.filter(
+          (columnKey) =>
+            columnKey !== SELECTED_AVERAGE_COLUMN_KEY,
+        );
 
   return {
     playerMode: resolvePlayerMode(state.playerMode),
@@ -324,8 +348,8 @@ export function resolveAuctionSettings(
     roleLimits: resolveRoleLimits(state.roleLimits),
     roleBudgets: resolveRoleBudgets(state.roleBudgets),
     visibleColumnKeys:
-      visibleColumnKeys.length > 0
-        ? visibleColumnKeys
+      normalizedVisibleColumnKeys.length > 0
+        ? normalizedVisibleColumnKeys
         : [...DEFAULT_VISIBLE_COLUMNS],
     columnOrderKeys: readColumnKeys(
       state.columnOrderKeys,
