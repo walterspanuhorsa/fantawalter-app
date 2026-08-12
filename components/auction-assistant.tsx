@@ -1,4 +1,4 @@
-// Versione 1.5
+// Versione 1.6
 "use client";
 
 import Link from "next/link";
@@ -1127,11 +1127,11 @@ const teams = useMemo(() => {
     ],
   );
 
-  const displayedPlayers = useMemo(() => {
+  const displayedPlayers = useMemo<PlayerRow[]>(() => {
     const normalizedSearch = normalizeSearchText(nameSearch);
 
-    const filteredPlayers =
-      playersWithSelectedAverage.filter((player) => {
+    const filteredPlayers: PlayerRow[] =
+      playersWithSelectedAverage.filter((player: PlayerRow) => {
         const playerKey = getPlayerKey(player);
 
       if (
@@ -1174,15 +1174,15 @@ const teams = useMemo(() => {
     });
 
     return [...filteredPlayers].sort(
-      (firstPlayer, secondPlayer) => {
+      (firstPlayer: PlayerRow, secondPlayer: PlayerRow) => {
         const firstValue =
           sortColumn === "giocatore"
             ? getTextValue(firstPlayer, "nome")
-            : firstPlayer[sortColumn];
+            : (firstPlayer as PlayerRow)[sortColumn];
         const secondValue =
           sortColumn === "giocatore"
             ? getTextValue(secondPlayer, "nome")
-            : secondPlayer[sortColumn];
+            : (secondPlayer as PlayerRow)[sortColumn];
 
         const firstIsEmpty = isEmptyValue(firstValue);
         const secondIsEmpty = isEmptyValue(secondValue);
