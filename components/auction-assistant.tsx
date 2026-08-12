@@ -1,4 +1,4 @@
-// Versione 1.4
+// Versione 1.5
 "use client";
 
 import Link from "next/link";
@@ -728,9 +728,9 @@ export default function AuctionAssistant({
     [visibleColumnKeys, strategyColumnKeySet],
   );
 
-  const playersWithSelectedAverage = useMemo(
+  const playersWithSelectedAverage = useMemo<PlayerRow[]>(
     () =>
-      initialPlayers.map((player) => ({
+      initialPlayers.map((player): PlayerRow => ({
         ...player,
         [SELECTED_AVERAGE_COLUMN_KEY]:
           calculateSelectedStrategyAverage(
