@@ -1,3 +1,4 @@
+// Versione 1.8
 import {
   DEFAULT_ROLE_BUDGETS,
   DEFAULT_ROLE_LIMITS,
@@ -127,6 +128,15 @@ export const BASE_COLUMNS: ColumnDefinition[] = [
   { key: "percezione", label: "Percezione" },
 ];
 
+export const FANTACALCIO_COLUMNS: ColumnDefinition[] = [
+  { key: "fc_qi", label: "FC QI" },
+  { key: "fc_qa", label: "FC QA" },
+  { key: "fc_qi_m", label: "FC QI_M" },
+  { key: "fc_qa_m", label: "FC QA_M" },
+  { key: "fc_fvm1000", label: "FC FVM1000" },
+  { key: "fc_fvm1000_m", label: "FC FVM1000_M" },
+];
+
 export const DEFAULT_VISIBLE_COLUMNS = BASE_COLUMNS
   .filter(
     (column) =>
@@ -154,6 +164,7 @@ export function getAllColumns(
 ): ColumnDefinition[] {
   return [
     ...BASE_COLUMNS,
+    ...FANTACALCIO_COLUMNS,
     ...strategyColumns.map((columnName) => ({
       key: columnName,
       label: formatStrategyLabel(columnName),

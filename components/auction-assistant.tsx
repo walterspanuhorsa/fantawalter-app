@@ -1,4 +1,4 @@
-// Versione 1.6
+// Versione 1.8
 "use client";
 
 import Link from "next/link";
@@ -24,9 +24,8 @@ import {
 import type { PlayerRow } from "@/lib/players";
 import {
   AUCTION_STORAGE_KEY,
-  BASE_COLUMNS,
   DEFAULT_VISIBLE_COLUMNS,
-  formatStrategyLabel,
+  getAllColumns,
   SELECTED_AVERAGE_COLUMN_KEY,
   type ColumnDefinition,
   type LeagueSize,
@@ -146,6 +145,18 @@ const COLUMN_DESCRIPTIONS: Record<string, string> = {
     "Integrità (1–5): più il valore è alto, minore è la propensione del giocatore agli infortuni.",
   media_strategie:
     "Prezzo consigliato medio, espresso in crediti, calcolato sulle valutazioni di tutte le strategie importate dal sistema di tutti i creator.",
+  fc_qi:
+    "Quotazione iniziale Fantacalcio.it.",
+  fc_qa:
+    "Quotazione attuale Fantacalcio.it.",
+  fc_qi_m:
+    "Quotazione iniziale Mantra Fantacalcio.it.",
+  fc_qa_m:
+    "Quotazione attuale Mantra Fantacalcio.it.",
+  fc_fvm1000:
+    "Fanta Valore di Mercato Fantacalcio.it riferito a un budget di 1000 crediti.",
+  fc_fvm1000_m:
+    "Fanta Valore di Mercato Mantra Fantacalcio.it riferito a un budget di 1000 crediti.",
   [SELECTED_AVERAGE_COLUMN_KEY]:
     "Prezzo consigliato medio, espresso in crediti, calcolato esclusivamente sulle valutazioni degli esperti selezionati nelle impostazioni.",
   pma:
@@ -699,16 +710,10 @@ export default function AuctionAssistant({
       viewportHeight: 0,
     });
 
-  const allColumns = useMemo<ColumnDefinition[]>(() => {
-    const dynamicStrategyColumns = strategyColumns.map(
-      (columnName) => ({
-        key: columnName,
-        label: formatStrategyLabel(columnName),
-      }),
-    );
-
-    return [...BASE_COLUMNS, ...dynamicStrategyColumns];
-  }, [strategyColumns]);
+  const allColumns = useMemo<ColumnDefinition[]>(
+    () => getAllColumns(strategyColumns),
+    [strategyColumns],
+  );
 
   const allowedColumnKeySet = useMemo(
     () => new Set(allColumns.map((column) => column.key)),

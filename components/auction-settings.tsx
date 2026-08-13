@@ -1,3 +1,4 @@
+// Versione 1.10
 "use client";
 
 // AUCTION_SETTINGS_BORDER_FIX_V1: evita mix border/borderColor nei pulsanti dinamici.
@@ -14,6 +15,7 @@ import {
 
 import {
   DEFENSE_MODIFIER_COOKIE,
+  FANTACALCIO_COLUMNS,
   LEAGUE_SIZE_COOKIE,
   PLAYER_MODE_COOKIE,
   clearAuctionData,
@@ -71,6 +73,47 @@ const SETTINGS_SECTIONS: Array<{
 
 const COOKIE_MAX_AGE = 31536000;
 
+const SETTINGS_COLUMN_DESCRIPTIONS: Record<string, string> = {
+  giocatore: "Dati sul giocatore: ruolo, nome e squadra, ",
+  titolarita:
+    "Titolarità (1–5): un valore di 4 o 5 indica un giocatore stabilmente titolare e difficilmente sostituibile nella propria squadra.",
+  affidabilita:
+    "Affidabilità (1–5): più il valore è alto, maggiore è la tendenza del giocatore a ottenere voti positivi.",
+  integrita:
+    "Integrità (1–5): più il valore è alto, minore è la propensione del giocatore agli infortuni.",
+  media_strategie:
+    "Prezzo consigliato medio, espresso in crediti, calcolato sulle valutazioni di tutte le strategie importate dal sistema di tutti i creator.",
+  [SELECTED_AVERAGE_COLUMN_KEY]:
+    "Prezzo consigliato medio, espresso in crediti, calcolato esclusivamente sulle valutazioni degli esperti selezionati",
+  pma:
+    "Prezzo medio aste: media dei prezzi a cui il giocatore è stato acquistato nelle aste registrate su Fantalab.",
+  note: "Note sintetiche su alcune caratteristiche del giocatore.",
+  percezione:
+    "Confronta il PMA con il valore Media: verde se il PMA è almeno il 10% più basso; rosso se è almeno il 10% più alto; grigio se i valori sono in linea o non disponibili.",
+  fc_qi: "Quotazione iniziale Fantacalcio.it.",
+  fc_qa: "Quotazione attuale Fantacalcio.it.",
+  fc_qi_m: "Quotazione iniziale Mantra Fantacalcio.it.",
+  fc_qa_m: "Quotazione attuale Mantra Fantacalcio.it.",
+  fc_fvm1000:
+    "Fanta Valore di Mercato Fantacalcio.it riferito a un budget di 1000 crediti.",
+  fc_fvm1000_m:
+    "Fanta Valore di Mercato Mantra Fantacalcio.it riferito a un budget di 1000 crediti.",
+};
+
+function getSettingsColumnDescription(
+  column: ColumnDefinition,
+): string {
+  if (SETTINGS_COLUMN_DESCRIPTIONS[column.key]) {
+    return SETTINGS_COLUMN_DESCRIPTIONS[column.key];
+  }
+
+  if (column.key.startsWith("strategia_")) {
+    return `Prezzo consigliato da ${column.label}, espresso in crediti in base al budget iniziale.`;
+  }
+
+  return column.label;
+}
+
 function formatPercentage(value: number): string {
   const roundedValue = Math.round(value * 10) / 10;
 
@@ -122,13 +165,34 @@ export default function AuctionSettingsPanel({
     [strategyColumns],
   );
 
+  const fantacalcioColumnKeySet = useMemo(
+    () =>
+      new Set(
+        FANTACALCIO_COLUMNS.map((column) => column.key),
+      ),
+    [],
+  );
+
   const mainColumns = useMemo(
     () =>
       allColumns.filter(
         (column) =>
-          !strategyColumnKeySet.has(column.key),
+          !strategyColumnKeySet.has(column.key) &&
+          !fantacalcioColumnKeySet.has(column.key),
       ),
-    [allColumns, strategyColumnKeySet],
+    [
+      allColumns,
+      fantacalcioColumnKeySet,
+      strategyColumnKeySet,
+    ],
+  );
+
+  const fantacalcioSettingsColumns = useMemo(
+    () =>
+      allColumns.filter((column) =>
+        fantacalcioColumnKeySet.has(column.key),
+      ),
+    [allColumns, fantacalcioColumnKeySet],
   );
 
   const strategySettingsColumns = useMemo(
@@ -635,8 +699,8 @@ export default function AuctionSettingsPanel({
           aria-disabled={isSelectedAverageUnavailable}
           title={
             isSelectedAverageUnavailable
-              ? "Seleziona almeno due esperti per poter attivare questa colonna."
-              : undefined
+              ? `${getSettingsColumnDescription(column)}\n\nSeleziona almeno due esperti per poter attivare questa colonna.`
+              : getSettingsColumnDescription(column)
           }
           style={{
             ...choiceButtonStyle,
@@ -1117,24 +1181,32 @@ export default function AuctionSettingsPanel({
           {renderColumnControls(
             mainColumns,
           )}
+
+          {columnNotice && (
+            <div
+              role="status"
+              aria-live="polite"
+              style={{
+                ...columnNoticeStyle,
+                width: "100%",
+                margin: "4px 0 0",
+                ...(columnNotice.tone === "success"
+                  ? columnNoticeSuccessStyle
+                  : columnNoticeWarningStyle),
+              }}
+            >
+              {columnNotice.text}
+            </div>
+          )}
         </ColumnGroup>
 
-        {columnNotice && (
-          <div
-            role="status"
-            aria-live="polite"
-            style={{
-              ...columnNoticeStyle,
-              ...(columnNotice.tone === "success"
-                ? columnNoticeSuccessStyle
-                : columnNoticeWarningStyle),
-            }}
-          >
-            {columnNotice.text}
-          </div>
-        )}
+        <ColumnGroup title="Quotazioni fantacalcio.it">
+          {renderColumnControls(
+            fantacalcioSettingsColumns,
+          )}
+        </ColumnGroup>
 
-        <ColumnGroup title="Strategie">
+        <ColumnGroup title="Strategie Esperti">
           {strategySettingsColumns.length >
           0 ? (
             renderColumnControls(

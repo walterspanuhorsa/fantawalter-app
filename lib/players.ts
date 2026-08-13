@@ -1,3 +1,4 @@
+// Versione 1.8
 import "server-only";
 
 import { supabase } from "@/lib/supabase";
@@ -34,9 +35,15 @@ const PAGE_SIZE = 1000;
 
 const STAT_COLUMN_MAP: Record<string, string> = {
   Ruolo: "ruolo",
-  Ruolo_mantra: "ruolo_mantra",
+  "Ruolo Mantra": "ruolo_mantra",
   Team: "team",
   Nome: "nome",
+  "FC QI": "fc_qi",
+  "FC QA": "fc_qa",
+  "FC QI_M": "fc_qi_m",
+  "FC QA_M": "fc_qa_m",
+  "FC FVM1000": "fc_fvm1000",
+  "FC FVM1000_M": "fc_fvm1000_m",
   Quo: "quo",
   Titolarita: "titolarita",
   Affidabilita: "affidabilita",
@@ -111,6 +118,14 @@ function normalizeStatRow(
   )) {
     target[targetColumn] = source[sourceColumn] ?? null;
   }
+
+  /*
+   * Compatibilità con eventuali alias precedenti durante il passaggio
+   * dalla tabella player_stats_table alla nuova view consolidata.
+   */
+  target.ruolo_mantra ??= source.Ruolo_mantra ?? null;
+  target.fc_fvm1000 ??= source["FC FVM"] ?? null;
+  target.fc_fvm1000_m ??= source["FC FVM_M"] ?? null;
 
   /*
    * I componenti attuali leggono le note dai campi nota_1 ... nota_5.
@@ -266,7 +281,7 @@ async function loadStats(): Promise<PlayerRow[]> {
     const rows = await loadTableRows<
       Record<string, unknown>
     >(
-      "player_stats_table",
+      "vw_fantacalcio_player_stats",
       "Nome",
     );
 
@@ -281,7 +296,7 @@ async function loadStats(): Promise<PlayerRow[]> {
         : String(error);
 
     throw new Error(
-      `Errore nel caricamento di player_stats_table: ${message}`,
+      `Errore nel caricamento di vw_fantacalcio_player_stats: ${message}`,
     );
   }
 }
