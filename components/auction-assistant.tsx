@@ -1,4 +1,4 @@
-// Versione 1.8
+// Versione 1.13
 "use client";
 
 import Link from "next/link";
@@ -115,25 +115,6 @@ const MANTRA_ROLE_COLORS: Record<MantraRole, string> = {
   Pc: "#a12d25",
 };
 
-const NOTE_ICON_LEGEND = [
-  "🏰 Modificatore",
-  "🧱 Imbattibilità",
-  "📋 Titolarissimo",
-  "🎲 Scommessa",
-  "❌ Pararigori",
-  "🔄 Subentrante",
-  "🚑 Rischio infortuni",
-  "➕ Bonus",
-  "👟 Assistman o tiratore",
-  "🟥 Cartellini",
-  "📉 Incostante",
-  "📈 Costante",
-  "🥅 Tanti gol",
-  "🅿️ Rigorista",
-  "🃏 Jolly",
-  "🦁 Coppa d’Africa",
-].join(" · ");
-
 const COLUMN_DESCRIPTIONS: Record<string, string> = {
   giocatore:
     "Dati sul giocatore",
@@ -161,7 +142,7 @@ const COLUMN_DESCRIPTIONS: Record<string, string> = {
     "Prezzo consigliato medio, espresso in crediti, calcolato esclusivamente sulle valutazioni degli esperti selezionati nelle impostazioni.",
   pma:
     "Prezzo medio aste: media dei prezzi a cui il giocatore è stato acquistato nelle aste registrate su Fantalab.",
-  note: `Note sintetiche sul giocatore. Legenda: ${NOTE_ICON_LEGEND}`,
+  note: "Note sintetiche sul giocatore, visualizzate come etichette colorate in base alla caratteristica.",
   percezione:
     "Confronta il PMA con il valore Media: verde se il PMA è almeno il 10% più basso; rosso se è almeno il 10% più alto; grigio se i valori sono in linea o non disponibili.",
 };

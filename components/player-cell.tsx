@@ -1,3 +1,4 @@
+// Versione 1.14
 import type { CSSProperties } from "react";
 
 import { formatPlayerValue, parseNumericValue } from "@/lib/budget";
@@ -9,37 +10,12 @@ interface PlayerCellProps {
   initialBudget: number;
 }
 
-interface PlayerNote {
-  text: string;
-  icon: string;
-}
-
 type PerceptionStatus = "green" | "red" | "gray";
 
 interface PerceptionResult {
   status: PerceptionStatus;
   description: string;
 }
-
-const NOTE_ICON_MAP: Record<string, string> = {
-  modificatore: "🏰",
-  "imbattibilità": "🧱",
-  titolarissimo: "📋",
-  scommessa: "🎲",
-  pararigori: "❌",
-  subentrante: "🔄",
-  "rischio infortuni": "🚑",
-  bonus: "➕",
-  assistman: "👟",
-  cartellini: "🟥",
-  tiratore: "👟",
-  incostante: "📉",
-  costante: "📈",
-  "tanti gol": "🥅",
-  rigorista: "🅿️",
-  jolly: "🃏",
-  "coppa africa": "🦁",
-};
 
 const PERCEPTION_COLORS: Record<PerceptionStatus, string> = {
   green: "#2ecc71",
@@ -55,22 +31,97 @@ function normalizeNote(value: unknown): string {
   return String(value).trim();
 }
 
-function getPlayerNotes(player: PlayerRow): PlayerNote[] {
-  const notes: PlayerNote[] = [];
+type NoteTone = "positive" | "negative" | "neutral" | "unknown";
+
+const NOTE_TONE_COLORS: Record<
+  NoteTone,
+  { border: string; background: string; text: string }
+> = {
+  positive: {
+    border: "#22c55e",
+    background: "rgba(34, 197, 94, 0.16)",
+    text: "#166534",
+  },
+  negative: {
+    border: "#ef4444",
+    background: "rgba(239, 68, 68, 0.16)",
+    text: "#991b1b",
+  },
+  neutral: {
+    border: "#38bdf8",
+    background: "rgba(56, 189, 248, 0.16)",
+    text: "#075985",
+  },
+  unknown: {
+    border: "#94a3b8",
+    background: "rgba(148, 163, 184, 0.14)",
+    text: "#334155",
+  },
+};
+
+const POSITIVE_NOTES = new Set([
+  "modificatore",
+  "imbattibilita",
+  "titolarissimo",
+  "pararigori",
+  "bonus",
+  "assistman",
+  "assistman o tiratore",
+  "tiratore",
+  "costante",
+  "tanti gol",
+  "rigorista",
+  "jolly",
+]);
+
+const NEGATIVE_NOTES = new Set([
+  "subentrante",
+  "rischio infortuni",
+  "cartellini",
+  "incostante",
+  "coppa d'africa",
+  "copa d'africa",
+]);
+
+const NEUTRAL_NOTES = new Set(["scommessa"]);
+
+function normalizeNoteKey(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[’‘`´]/g, "'")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLocaleLowerCase("it");
+}
+
+function getNoteTone(note: string): NoteTone {
+  const normalized = normalizeNoteKey(note);
+
+  if (POSITIVE_NOTES.has(normalized)) {
+    return "positive";
+  }
+
+  if (NEGATIVE_NOTES.has(normalized)) {
+    return "negative";
+  }
+
+  if (NEUTRAL_NOTES.has(normalized)) {
+    return "neutral";
+  }
+
+  return "unknown";
+}
+
+function getPlayerNotes(player: PlayerRow): string[] {
+  const notes: string[] = [];
 
   for (let index = 1; index <= 5; index += 1) {
     const note = normalizeNote(player[`nota_${index}`]);
 
-    if (!note) {
-      continue;
+    if (note) {
+      notes.push(note);
     }
-
-    const normalizedNote = note.toLocaleLowerCase("it");
-
-    notes.push({
-      text: note,
-      icon: NOTE_ICON_MAP[normalizedNote] ?? "📝",
-    });
   }
 
   return notes;
@@ -143,16 +194,25 @@ export default function PlayerCell({
     }
 
     return (
-      <span>
-        {notes.map((note, index) => (
-          <span
-            key={`${note.text}-${index}`}
-            title={note.text}
-            style={noteIconStyle}
-          >
-            {note.icon}
-          </span>
-        ))}
+      <span style={notesContainerStyle}>
+        {notes.map((note, index) => {
+          const tone = getNoteTone(note);
+          const colors = NOTE_TONE_COLORS[tone];
+
+          return (
+            <span
+              key={`${note}-${index}`}
+              style={{
+                ...noteBadgeStyle,
+                borderColor: colors.border,
+                background: colors.background,
+                color: colors.text,
+              }}
+            >
+              {note}
+            </span>
+          );
+        })}
       </span>
     );
   }
@@ -182,16 +242,30 @@ export default function PlayerCell({
   );
 }
 
-const noteIconStyle: CSSProperties = {
-  display: "inline-block",
-  marginRight: "5px",
-  cursor: "help",
-};
-
 const perceptionDotStyle: CSSProperties = {
   display: "inline-block",
   width: "13px",
   height: "13px",
   borderRadius: "50%",
   cursor: "help",
+};
+const notesContainerStyle: CSSProperties = {
+  display: "inline-flex",
+  flexWrap: "wrap",
+  alignItems: "center",
+  gap: "4px",
+  verticalAlign: "middle",
+};
+
+const noteBadgeStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  minHeight: "18px",
+  padding: "2px 5px",
+  border: "1px solid",
+  borderRadius: "5px",
+  fontSize: "10px",
+  fontWeight: 600,
+  lineHeight: 1.15,
+  whiteSpace: "nowrap",
 };

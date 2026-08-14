@@ -1,4 +1,4 @@
-// Versione 1.10
+// Versione 1.13
 "use client";
 
 // AUCTION_SETTINGS_BORDER_FIX_V1: evita mix border/borderColor nei pulsanti dinamici.
@@ -74,7 +74,7 @@ const SETTINGS_SECTIONS: Array<{
 const COOKIE_MAX_AGE = 31536000;
 
 const SETTINGS_COLUMN_DESCRIPTIONS: Record<string, string> = {
-  giocatore: "Dati sul giocatore: ruolo, nome e squadra, ",
+  giocatore: "Dati sul giocatore.",
   titolarita:
     "Titolarità (1–5): un valore di 4 o 5 indica un giocatore stabilmente titolare e difficilmente sostituibile nella propria squadra.",
   affidabilita:
@@ -84,10 +84,10 @@ const SETTINGS_COLUMN_DESCRIPTIONS: Record<string, string> = {
   media_strategie:
     "Prezzo consigliato medio, espresso in crediti, calcolato sulle valutazioni di tutte le strategie importate dal sistema di tutti i creator.",
   [SELECTED_AVERAGE_COLUMN_KEY]:
-    "Prezzo consigliato medio, espresso in crediti, calcolato esclusivamente sulle valutazioni degli esperti selezionati",
+    "Prezzo consigliato medio, espresso in crediti, calcolato esclusivamente sulle valutazioni degli esperti selezionati nelle impostazioni.",
   pma:
     "Prezzo medio aste: media dei prezzi a cui il giocatore è stato acquistato nelle aste registrate su Fantalab.",
-  note: "Note sintetiche su alcune caratteristiche del giocatore.",
+  note: "Note sintetiche sul giocatore, visualizzate come etichette colorate in base alla caratteristica.",
   percezione:
     "Confronta il PMA con il valore Media: verde se il PMA è almeno il 10% più basso; rosso se è almeno il 10% più alto; grigio se i valori sono in linea o non disponibili.",
   fc_qi: "Quotazione iniziale Fantacalcio.it.",
