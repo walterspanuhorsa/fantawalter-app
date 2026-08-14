@@ -1,4 +1,4 @@
-// Versione 1.8
+// Versione 1.11
 import "server-only";
 
 import { supabase } from "@/lib/supabase";
@@ -19,8 +19,11 @@ export interface LeagueDataPreferences {
 }
 
 interface PmaRow extends Record<string, unknown> {
-  Nome?: unknown;
-  PMA?: unknown;
+  nome?: unknown;
+  pma?: unknown;
+  tipofantacalcio?: unknown;
+  partecipanti?: unknown;
+  modificatore?: unknown;
 }
 
 interface StrategyRow extends Record<string, unknown> {
@@ -228,46 +231,6 @@ async function loadTableRows<T extends Record<string, unknown>>(
   return rows;
 }
 
-function isMissingRelationError(error: unknown): boolean {
-  if (!error || typeof error !== "object") {
-    return false;
-  }
-
-  const record = error as Record<string, unknown>;
-  const code = String(record.code ?? "");
-  const message = String(record.message ?? "")
-    .toLocaleLowerCase("it");
-
-  return (
-    code === "42P01" ||
-    code === "PGRST205" ||
-    message.includes("does not exist") ||
-    message.includes("could not find the table")
-  );
-}
-
-export function getPmaTableName(
-  preferences: LeagueDataPreferences,
-): string {
-  const mode = resolvePlayerMode(
-    preferences.playerMode,
-  );
-  const leagueSize = resolveLeagueSize(
-    preferences.leagueSize,
-  );
-  if (mode === "mantra") {
-    return `pma${leagueSize}_mantra`;
-  }
-
-  const modifier = resolveDefenseModifier(
-    preferences.defenseModifier,
-  )
-    ? "mod"
-    : "nomod";
-
-  return `pma${leagueSize}_${modifier}_classic`;
-}
-
 export function getStrategiesTableName(
   requestedMode: PlayerMode | string,
 ): string {
@@ -304,18 +267,70 @@ async function loadStats(): Promise<PlayerRow[]> {
 async function loadPmaMap(
   preferences: LeagueDataPreferences,
 ): Promise<Map<string, unknown>> {
-  const tableName = getPmaTableName(preferences);
+  const mode = resolvePlayerMode(
+    preferences.playerMode,
+  );
+  const leagueSize = resolveLeagueSize(
+    preferences.leagueSize,
+  );
+  const modifier = resolveDefenseModifier(
+    preferences.defenseModifier,
+  )
+    ? "Y"
+    : "N";
+
+  const rows: PmaRow[] = [];
+  let from = 0;
 
   try {
-    const rows = await loadTableRows<PmaRow>(
-      tableName,
-      "Nome",
-    );
+    while (true) {
+      const to = from + PAGE_SIZE - 1;
+
+      let query = supabase
+        .schema("public")
+        .from("player_pma")
+        .select(
+          "nome,pma,tipofantacalcio,partecipanti,modificatore",
+        )
+        /*
+         * I dati possono contenere classic/mantra oppure Classic/Mantra.
+         * ILIKE senza wildcard mantiene il confronto esatto sul valore,
+         * ma senza distinzione tra maiuscole e minuscole.
+         */
+        .ilike("tipofantacalcio", mode)
+        .eq("partecipanti", leagueSize);
+
+      /*
+       * Il modificatore esiste solo per il Classic.
+       * Per Mantra non applichiamo alcun filtro alla colonna, così sono
+       * validi sia NULL sia stringa vuota o qualunque valore legacy.
+       */
+      if (mode === "classic") {
+        query = query.eq("modificatore", modifier);
+      }
+
+      const { data, error } = await query
+        .order("nome", { ascending: true })
+        .range(from, to);
+
+      if (error) {
+        throw error;
+      }
+
+      const currentPage = (data ?? []) as PmaRow[];
+      rows.push(...currentPage);
+
+      if (currentPage.length < PAGE_SIZE) {
+        break;
+      }
+
+      from += PAGE_SIZE;
+    }
 
     const pmaByPlayer = new Map<string, unknown>();
 
     for (const row of rows) {
-      const playerKey = normalizePlayerName(row.Nome);
+      const playerKey = normalizePlayerName(row.nome);
 
       if (!playerKey) {
         continue;
@@ -323,24 +338,12 @@ async function loadPmaMap(
 
       pmaByPlayer.set(
         playerKey,
-        row.PMA ?? null,
+        row.pma ?? null,
       );
     }
 
     return pmaByPlayer;
   } catch (error) {
-    /*
-     * Le PMA Mantra non erano ancora state definite quando è stata
-     * introdotta questa modifica. Se una specifica tabella non esiste,
-     * la pagina continua a funzionare mostrando PMA vuota.
-     */
-    if (isMissingRelationError(error)) {
-      console.warn(
-        `[FantaWalter] Tabella PMA non disponibile: ${tableName}.`,
-      );
-      return new Map();
-    }
-
     const message =
       error && typeof error === "object"
         ? String(
@@ -349,8 +352,13 @@ async function loadPmaMap(
           )
         : String(error);
 
+    const filterDescription =
+      mode === "classic"
+        ? `${mode}, ${leagueSize} partecipanti, modificatore ${modifier}`
+        : `${mode}, ${leagueSize} partecipanti`;
+
     throw new Error(
-      `Errore nel caricamento di ${tableName}: ${message}`,
+      `Errore nel caricamento di player_pma (${filterDescription}): ${message}`,
     );
   }
 }
