@@ -1,3 +1,5 @@
+// Versione 1.1
+
 export function parseNumericValue(
   value: unknown,
 ): number | null {
@@ -62,6 +64,16 @@ export function formatPlayerValue(
   }
 
   const numericValue = parseNumericValue(value);
+
+  // Il PMA usa -1 come valore sentinella per "dato non disponibile".
+  // Qualsiasi PMA non numerico o negativo viene mostrato come trattino
+  // e non viene convertito in crediti.
+  if (
+    columnName === "pma" &&
+    (numericValue === null || numericValue < 0)
+  ) {
+    return "-";
+  }
 
   if (
     isBudgetPercentageColumn(columnName) &&

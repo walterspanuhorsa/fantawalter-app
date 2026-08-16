@@ -1,4 +1,4 @@
-// Versione 1.14
+// Versione 1.15
 import type { CSSProperties } from "react";
 
 import { formatPlayerValue, parseNumericValue } from "@/lib/budget";
@@ -141,15 +141,17 @@ function calculatePerception(
   const pmaValue = parseNumericValue(pma);
   const mediaValue = parseNumericValue(mediaStrategie);
 
+  // PMA -1 (sentinella), zero o valori mancanti non devono
+  // partecipare al confronto con la media.
   if (
     pmaValue === null ||
     mediaValue === null ||
-    pmaValue === 0 ||
-    mediaValue === 0
+    pmaValue <= 0 ||
+    mediaValue <= 0
   ) {
     return {
       status: "gray",
-      description: "Dati non disponibili o nulli.",
+      description: "PMA o media non disponibili.",
     };
   }
 
@@ -249,6 +251,7 @@ const perceptionDotStyle: CSSProperties = {
   borderRadius: "50%",
   cursor: "help",
 };
+
 const notesContainerStyle: CSSProperties = {
   display: "inline-flex",
   flexWrap: "wrap",
