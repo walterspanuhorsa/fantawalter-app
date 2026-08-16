@@ -1,4 +1,4 @@
-// Versione 1.11
+// Versione 1.12
 import "server-only";
 
 import { supabase } from "@/lib/supabase";
@@ -154,41 +154,57 @@ function normalizeStatRow(
 }
 
 function robustAverage(values: number[]): number | null {
-  if (values.length === 0) {
+  /*
+   * Un valore è "registrato" solo se numerico e > 0.
+   * Zero e valori assenti/non validi non partecipano né al conteggio
+   * né alla media.
+   */
+  const registeredValues = values
+    .filter(
+      (value) =>
+        Number.isFinite(value) &&
+        value > 0,
+    )
+    .sort((first, second) => first - second);
+
+  if (registeredValues.length === 0) {
     return null;
   }
 
-  const sortedValues = [...values].sort(
-    (first, second) => first - second,
-  );
-
   /*
-   * Mantiene la logica robusta già usata nel progetto:
-   * da 4 valori in su elimina progressivamente gli estremi.
-   * k = floor(n / 4), quindi 4 -> 1 per lato, 8 -> 2, ecc.
+   * Regola degli scarti:
+   * 1-4 valori   -> nessuno scarto
+   * 5-8 valori   -> 1 minimo + 1 massimo
+   * 9-12 valori  -> 2 minimi + 2 massimi
+   * 13-16 valori -> 3 minimi + 3 massimi
+   * e così via.
    */
   const valuesToDiscardPerSide =
-    Math.floor(sortedValues.length / 4);
+    Math.floor((registeredValues.length - 1) / 4);
 
   const usableValues =
     valuesToDiscardPerSide > 0
-      ? sortedValues.slice(
+      ? registeredValues.slice(
           valuesToDiscardPerSide,
-          sortedValues.length - valuesToDiscardPerSide,
+          registeredValues.length - valuesToDiscardPerSide,
         )
-      : sortedValues;
+      : registeredValues;
 
   if (usableValues.length === 0) {
     return null;
   }
 
-  const average =
+  /*
+   * Non arrotondiamo qui la percentuale.
+   * L'arrotondamento avviene solo dopo la conversione in crediti,
+   * così Media e Media Selezionati producono lo stesso risultato.
+   */
+  return (
     usableValues.reduce(
       (total, value) => total + value,
       0,
-    ) / usableValues.length;
-
-  return Math.max(1, Math.round(average));
+    ) / usableValues.length
+  );
 }
 
 async function loadTableRows<T extends Record<string, unknown>>(
@@ -427,7 +443,11 @@ function buildStrategyDataByPlayer(
 
     dataByPlayer.set(playerKey, playerData);
 
-    if (budget !== null) {
+    /*
+     * Zero equivale a valore non registrato e non deve contribuire
+     * alla Media.
+     */
+    if (budget !== null && budget > 0) {
       const playerBudgets =
         budgetsByPlayer.get(playerKey) ?? [];
 
