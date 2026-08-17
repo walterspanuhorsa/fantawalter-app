@@ -1,4 +1,4 @@
-// Versione 1.14
+// Versione 1.15
 "use client";
 
 import Link from "next/link";
@@ -450,62 +450,24 @@ function calculateSelectedStrategyAverage(
   player: PlayerRow,
   selectedStrategyColumns: string[],
 ): number | null {
-  /*
-   * Un valore è "registrato" solo se numerico e maggiore di zero.
-   * NULL, valori non numerici e 0 non partecipano né al conteggio
-   * né alla media.
-   */
-  const registeredValues = selectedStrategyColumns
+  const values = selectedStrategyColumns
     .map((columnKey) =>
       parseNumericValue(player[columnKey]),
     )
     .filter(
-      (value): value is number =>
-        value !== null &&
-        Number.isFinite(value) &&
-        value > 0,
-    )
-    .sort((first, second) => first - second);
+      (value): value is number => value !== null,
+    );
 
-  if (registeredValues.length === 0) {
+  if (values.length === 0) {
     return null;
   }
 
-  /*
-   * Regola degli scarti, identica a quella della Media generale:
-   * 1-4 valori   -> nessuno scarto
-   * 5-8 valori   -> 1 minimo + 1 massimo
-   * 9-12 valori  -> 2 minimi + 2 massimi
-   * 13-16 valori -> 3 minimi + 3 massimi
-   * e così via, aggiungendo uno scarto per lato
-   * ogni ulteriore gruppo di 4 valori registrati.
-   */
-  const valuesToDiscardPerSide =
-    Math.floor((registeredValues.length - 1) / 4);
-
-  const usableValues =
-    valuesToDiscardPerSide > 0
-      ? registeredValues.slice(
-          valuesToDiscardPerSide,
-          registeredValues.length - valuesToDiscardPerSide,
-        )
-      : registeredValues;
-
-  if (usableValues.length === 0) {
-    return null;
-  }
-
-  /*
-   * Manteniamo la percentuale non arrotondata.
-   * L'arrotondamento avviene solo quando il valore viene
-   * convertito in crediti, così Media e Media Selezionati
-   * coincidono quando sono selezionati tutti gli esperti.
-   */
+  // Media aritmetica pura: ogni valore disponibile degli
+  // esperti selezionati partecipa al calcolo. Nessun ordinamento,
+  // taglio degli estremi o esclusione di outlier.
   return (
-    usableValues.reduce(
-      (total, value) => total + value,
-      0,
-    ) / usableValues.length
+    values.reduce((total, value) => total + value, 0) /
+    values.length
   );
 }
 
@@ -1282,9 +1244,11 @@ const teams = useMemo(() => {
   function updateTooltipPointer(
     event: ReactMouseEvent<HTMLElement>,
   ): void {
+    const anchorRect = event.currentTarget.getBoundingClientRect();
+
     setTooltipPointer({
-      x: event.clientX,
-      y: event.clientY,
+      x: anchorRect.right,
+      y: anchorRect.top + anchorRect.height / 2,
       viewportWidth: window.innerWidth,
       viewportHeight: window.innerHeight,
     });
@@ -1997,11 +1961,6 @@ const teams = useMemo(() => {
                               isPlayerColumn
                                 ? (event) =>
                                     showPlayerTooltip(event, player)
-                                : undefined
-                            }
-                            onMouseMove={
-                              isPlayerColumn
-                                ? updateTooltipPointer
                                 : undefined
                             }
                             onMouseLeave={

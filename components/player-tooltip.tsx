@@ -1,7 +1,7 @@
-// Versione 1.3
+// Versione 1.19
 "use client";
 
-// TOOLTIP_LAYOUT_V3: statistiche a sinistra, prezzi/strategie suddivisi in colonne da massimo 13 righe.
+// TOOLTIP_LAYOUT_V7: rimossi i separatori ridondanti tra dati anagrafici e suggerimenti; layout compatto invariato.
 
 import type { CSSProperties } from "react";
 
@@ -877,14 +877,49 @@ function DetailColumn({
       {items.length === 0 ? (
         <p style={emptyTextStyle}>Nessun dato disponibile.</p>
       ) : (
-        items.map((item) => (
-          <p key={item.label} style={detailLineStyle}>
+        items.map((item, index) => (
+          <p
+            key={item.label}
+            style={
+              index === items.length - 1
+                ? lastDetailLineStyle
+                : detailLineStyle
+            }
+          >
             <strong style={detailLabelStyle}>{item.label}:</strong>{" "}
             {item.value}
           </p>
         ))
       )}
     </section>
+  );
+}
+
+function DetailItemsColumn({
+  items,
+}: {
+  items: DetailItem[];
+}) {
+  return (
+    <div style={detailColumnStyle}>
+      {items.length === 0 ? (
+        <p style={emptyTextStyle}>Nessun dato disponibile.</p>
+      ) : (
+        items.map((item, index) => (
+          <p
+            key={item.label}
+            style={
+              index === items.length - 1
+                ? lastDetailLineStyle
+                : detailLineStyle
+            }
+          >
+            <strong style={detailLabelStyle}>{item.label}:</strong>{" "}
+            {item.value}
+          </p>
+        ))
+      )}
+    </div>
   );
 }
 
@@ -937,7 +972,14 @@ export default function PlayerTooltip({
     initialBudget,
   );
 
-  const STRATEGY_ROWS_PER_COLUMN = 13;
+  const STRATEGY_ROWS_PER_COLUMN = 7;
+
+  const seasonDetails = buildSeasonDetails(player);
+  const seasonSplitIndex = Math.ceil(seasonDetails.length / 2);
+  const seasonDetailColumns: DetailItem[][] = [
+    seasonDetails.slice(0, seasonSplitIndex),
+    seasonDetails.slice(seasonSplitIndex),
+  ].filter((items) => items.length > 0);
 
   const strategyDetailColumns: DetailItem[][] = [];
 
@@ -954,15 +996,44 @@ export default function PlayerTooltip({
     );
   }
 
-  const horizontalPosition: CSSProperties =
-    pointerX > viewportWidth / 2
-      ? { right: Math.max(viewportWidth - pointerX + 14, 14) }
-      : { left: Math.max(pointerX + 14, 14) };
+  const TOOLTIP_GAP = 10;
+  const TOOLTIP_MARGIN = 8;
+  const showOnLeft = pointerX > viewportWidth / 2;
+  const showAbove = pointerY > viewportHeight / 2;
 
-  const verticalPosition: CSSProperties =
-    pointerY > viewportHeight / 2
-      ? { bottom: Math.max(viewportHeight - pointerY + 14, 14) }
-      : { top: Math.max(pointerY + 14, 14) };
+  const availableWidth = showOnLeft
+    ? pointerX - TOOLTIP_GAP - TOOLTIP_MARGIN
+    : viewportWidth - pointerX - TOOLTIP_GAP - TOOLTIP_MARGIN;
+
+  const availableHeight = showAbove
+    ? pointerY - TOOLTIP_GAP - TOOLTIP_MARGIN
+    : viewportHeight - pointerY - TOOLTIP_GAP - TOOLTIP_MARGIN;
+
+  const horizontalPosition: CSSProperties = showOnLeft
+    ? {
+        right: Math.max(
+          viewportWidth - pointerX + TOOLTIP_GAP,
+          TOOLTIP_MARGIN,
+        ),
+        maxWidth: `${Math.max(availableWidth, 280)}px`,
+      }
+    : {
+        left: Math.max(pointerX + TOOLTIP_GAP, TOOLTIP_MARGIN),
+        maxWidth: `${Math.max(availableWidth, 280)}px`,
+      };
+
+  const verticalPosition: CSSProperties = showAbove
+    ? {
+        bottom: Math.max(
+          viewportHeight - pointerY + TOOLTIP_GAP,
+          TOOLTIP_MARGIN,
+        ),
+        maxHeight: `${Math.max(availableHeight, 180)}px`,
+      }
+    : {
+        top: Math.max(pointerY + TOOLTIP_GAP, TOOLTIP_MARGIN),
+        maxHeight: `${Math.max(availableHeight, 180)}px`,
+      };
 
   return (
     <aside
@@ -1018,19 +1089,30 @@ export default function PlayerTooltip({
 
       <section style={fullWidthSectionStyle}>
         <div style={statisticsSectionContentStyle}>
-          <div style={detailsGridStyle}>
-            <DetailColumn
-              title="Statistiche"
-              items={buildSeasonDetails(player)}
-            />
+          <div style={detailsGroupsStyle}>
+            <section style={statisticsGroupStyle}>
+              <h4 style={detailColumnTitleStyle}>Statistiche</h4>
+              <div style={statisticsColumnsStyle}>
+                {seasonDetailColumns.map((items, columnIndex) => (
+                  <DetailItemsColumn
+                    key={`statistiche-${columnIndex}`}
+                    items={items}
+                  />
+                ))}
+              </div>
+            </section>
 
-            {strategyDetailColumns.map((items, columnIndex) => (
-              <DetailColumn
-                key={`strategie-${columnIndex}`}
-                title="Strategie"
-                items={items}
-              />
-            ))}
+            <section style={strategiesGroupStyle}>
+              <h4 style={detailColumnTitleStyle}>Strategie</h4>
+              <div style={strategyColumnsStyle}>
+                {strategyDetailColumns.map((items, columnIndex) => (
+                  <DetailItemsColumn
+                    key={`strategie-${columnIndex}`}
+                    items={items}
+                  />
+                ))}
+              </div>
+            </section>
           </div>
 
           {notes.length > 0 && (
@@ -1055,34 +1137,33 @@ export default function PlayerTooltip({
 const tooltipStyle: CSSProperties = {
   position: "fixed",
   zIndex: 2000,
-  width: "min(860px, calc(100vw - 28px))",
-  maxHeight: "min(720px, calc(100vh - 28px))",
+  width: "min(760px, calc(100vw - 16px))",
+  maxHeight: "calc(100vh - 16px)",
   overflowY: "auto",
-  padding: "16px",
+  padding: "10px 12px",
   border: "1px solid rgba(255,255,255,0.16)",
   borderRadius: "10px",
   background: "rgba(36, 52, 68, 0.98)",
   color: "#fff",
   boxShadow: "0 12px 34px rgba(0,0,0,0.38)",
   pointerEvents: "none",
-  fontSize: "0.84rem",
-  lineHeight: 1.45,
+  fontSize: "0.78rem",
+  lineHeight: 1.28,
 };
 
 const tooltipHeaderStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: "12px",
-  paddingBottom: "10px",
-  marginBottom: "10px",
-  borderBottom: "1px solid rgba(255,255,255,0.18)",
+  gap: "8px",
+  paddingBottom: 0,
+  marginBottom: "4px",
 };
 
 const playerNameStyle: CSSProperties = {
   display: "block",
   color: "#74b9ff",
-  fontSize: "1.08rem",
+  fontSize: "1rem",
 };
 
 const playerSubtitleStyle: CSSProperties = {
@@ -1090,10 +1171,34 @@ const playerSubtitleStyle: CSSProperties = {
   color: "#dfe6e9",
 };
 
-const detailsGridStyle: CSSProperties = {
+const detailsGroupsStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
-  gap: "14px",
+  gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+  gap: 0,
+  alignItems: "start",
+};
+
+const statisticsGroupStyle: CSSProperties = {
+  minWidth: 0,
+  paddingRight: "10px",
+};
+
+const strategiesGroupStyle: CSSProperties = {
+  minWidth: 0,
+  paddingLeft: "10px",
+  borderLeft: "1px solid rgba(255,255,255,0.28)",
+};
+
+const statisticsColumnsStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: "8px",
+};
+
+const strategyColumnsStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(0, 1fr))",
+  gap: "8px",
 };
 
 const detailColumnStyle: CSSProperties = {
@@ -1101,16 +1206,22 @@ const detailColumnStyle: CSSProperties = {
 };
 
 const detailColumnTitleStyle: CSSProperties = {
-  margin: "0 0 6px",
+  margin: "0 0 4px",
   color: "#f6c344",
-  fontSize: "0.9rem",
+  fontSize: "0.84rem",
 };
 
 const detailLineStyle: CSSProperties = {
   margin: 0,
-  padding: "4px 0",
+  padding: "2px 0",
   borderBottom: "1px solid rgba(255,255,255,0.1)",
   overflowWrap: "anywhere",
+};
+
+const lastDetailLineStyle: CSSProperties = {
+  ...detailLineStyle,
+  paddingBottom: 0,
+  borderBottom: "none",
 };
 
 const detailLabelStyle: CSSProperties = {
@@ -1123,8 +1234,8 @@ const emptyTextStyle: CSSProperties = {
 };
 
 const fullWidthSectionStyle: CSSProperties = {
-  paddingTop: "10px",
-  marginTop: "10px",
+  paddingTop: "6px",
+  marginTop: "6px",
   borderTop: "1px solid rgba(255,255,255,0.18)",
 };
 
@@ -1134,12 +1245,12 @@ const sectionTitleStyle: CSSProperties = {
 };
 
 const statisticsSectionContentStyle: CSSProperties = {
-  marginTop: "8px",
+  marginTop: "3px",
 };
 
 const subSectionStyle: CSSProperties = {
-  paddingTop: "10px",
-  marginTop: "10px",
+  paddingTop: "6px",
+  marginTop: "6px",
   borderTop: "1px solid rgba(255,255,255,0.1)",
 };
 
@@ -1148,14 +1259,13 @@ const subSectionTitleStyle: CSSProperties = {
 };
 
 const sectionTextStyle: CSSProperties = {
-  margin: "4px 0 0",
+  margin: "2px 0 0",
   whiteSpace: "normal",
 };
 
 const alertsSectionStyle: CSSProperties = {
-  paddingTop: "10px",
-  marginTop: "10px",
-  borderTop: "1px solid rgba(255,255,255,0.18)",
+  paddingTop: 0,
+  marginTop: 0,
 };
 
 const alertsTitleStyle: CSSProperties = {
@@ -1163,16 +1273,16 @@ const alertsTitleStyle: CSSProperties = {
 };
 
 const noAlertsStyle: CSSProperties = {
-  margin: "5px 0 0",
+  margin: "3px 0 0",
   color: "#a3e4b1",
 };
 
 const alertsListStyle: CSSProperties = {
-  marginTop: "5px",
+  marginTop: "3px",
 };
 
 const alertLineStyle: CSSProperties = {
-  margin: "4px 0",
+  margin: "2px 0",
 };
 
 const criticalAlertLineStyle: CSSProperties = {
