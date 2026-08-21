@@ -770,6 +770,33 @@ export default function AuctionSettingsPanel({
               })}
             </div>
           </section>
+		  
+		            <section style={settingBlockStyle}>
+            <div style={settingCopyStyle}>
+              <strong style={settingTitleStyle}>
+                Budget iniziale
+              </strong>
+              <span style={settingDescriptionStyle}>
+                Crediti disponibili all’inizio dell’asta.
+              </span>
+            </div>
+
+            <input
+              type="number"
+              min={1}
+              step={1}
+              value={
+                settings.initialBudget
+              }
+              onChange={(event) =>
+                changeInitialBudget(
+                  event.currentTarget
+                    .valueAsNumber,
+                )
+              }
+              style={numberInputStyle}
+            />
+          </section>
 
           <section style={settingBlockStyle}>
             <div style={settingCopyStyle}>
@@ -812,6 +839,8 @@ export default function AuctionSettingsPanel({
               })}
             </div>
           </section>
+		  
+		  
 
           {settings.playerMode === "classic" && (
           <section style={settingBlockStyle}>
@@ -867,7 +896,9 @@ export default function AuctionSettingsPanel({
             </div>
           </section>
           )}
-
+		
+		
+			
           <section style={settingBlockStyle}>
             <div style={settingCopyStyle}>
               <strong style={settingTitleStyle}>
@@ -926,32 +957,7 @@ export default function AuctionSettingsPanel({
             </div>
           </section>
 
-          <section style={settingBlockStyle}>
-            <div style={settingCopyStyle}>
-              <strong style={settingTitleStyle}>
-                Budget iniziale
-              </strong>
-              <span style={settingDescriptionStyle}>
-                Crediti disponibili all’inizio dell’asta.
-              </span>
-            </div>
 
-            <input
-              type="number"
-              min={1}
-              step={1}
-              value={
-                settings.initialBudget
-              }
-              onChange={(event) =>
-                changeInitialBudget(
-                  event.currentTarget
-                    .valueAsNumber,
-                )
-              }
-              style={numberInputStyle}
-            />
-          </section>
 
           <section style={settingBlockStyle}>
             <strong style={settingTitleStyle}>
@@ -1171,7 +1177,7 @@ export default function AuctionSettingsPanel({
             }
             style={secondaryButtonStyle}
           >
-            Rimuovi tutte
+            Reset
           </button>
         </div>
 
