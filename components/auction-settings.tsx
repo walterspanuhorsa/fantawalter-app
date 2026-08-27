@@ -1,4 +1,4 @@
-// Versione 1.13
+// Versione 1.15
 "use client";
 
 // AUCTION_SETTINGS_BORDER_FIX_V1: evita mix border/borderColor nei pulsanti dinamici.
@@ -72,6 +72,42 @@ const SETTINGS_SECTIONS: Array<{
 ];
 
 const COOKIE_MAX_AGE = 31536000;
+
+/*
+ * Preset Fantalab disponibile solo per il Classic.
+ * Ogni voce può contenere alias alternativi dello stesso creator.
+ * I creator non presenti tra le strategie caricate vengono ignorati.
+ */
+const FANTALAB_CLASSIC_CREATOR_ALIASES = [
+  ["carmyspecial", "carmy"],
+  ["lucadiddi"],
+  ["ilprofeta"],
+  ["cantarini", "canta"],
+  ["recosta"],
+  ["fantaverso"],
+  ["marcellobaldi"],
+  ["fantabox"],
+  ["fantacoach"],
+  ["fantavirus"],
+] as const;
+
+function normalizeCreatorIdentifier(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("it")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function getStrategyCreatorIdentifier(
+  columnKey: string,
+): string {
+  return normalizeCreatorIdentifier(
+    columnKey
+      .replace(/^strategia_/i, "")
+      .replace(/_(classic|mantra)$/i, ""),
+  );
+}
 
 const SETTINGS_COLUMN_DESCRIPTIONS: Record<string, string> = {
   giocatore: "Dati sul giocatore.",
@@ -612,6 +648,75 @@ export default function AuctionSettingsPanel({
               selectedAverageWasVisible),
         ),
     }));
+  }
+
+  function applyFantalabCreatorPreset(): void {
+    if (settings.playerMode !== "classic") {
+      return;
+    }
+
+    const classicStrategyByCreator = new Map<string, string>();
+
+    for (const columnKey of strategyColumns) {
+      if (!columnKey.toLocaleLowerCase("it").endsWith("_classic")) {
+        continue;
+      }
+
+      const creatorIdentifier =
+        getStrategyCreatorIdentifier(columnKey);
+
+      if (!classicStrategyByCreator.has(creatorIdentifier)) {
+        classicStrategyByCreator.set(creatorIdentifier, columnKey);
+      }
+    }
+
+    const fantalabStrategyColumns =
+      FANTALAB_CLASSIC_CREATOR_ALIASES
+        .map((aliases) => {
+          for (const alias of aliases) {
+            const matchingColumn = classicStrategyByCreator.get(
+              normalizeCreatorIdentifier(alias),
+            );
+
+            if (matchingColumn) {
+              return matchingColumn;
+            }
+          }
+
+          return null;
+        })
+        .filter(
+          (columnKey): columnKey is string => columnKey !== null,
+        );
+
+    updateSettings((current) => {
+      /*
+       * Il preset sostituisce soltanto la parte relativa alle strategie,
+       * ma usa Media Selezionati come riferimento al posto della Media
+       * generale. Le altre colonne scelte dall'utente restano invariate.
+       */
+      const nonStrategyColumns = current.visibleColumnKeys.filter(
+        (columnKey) =>
+          !strategyColumnKeySet.has(columnKey) &&
+          columnKey !== "media_strategie" &&
+          columnKey !== SELECTED_AVERAGE_COLUMN_KEY,
+      );
+
+      const visibleColumnKeys = Array.from(
+        new Set([
+          ...nonStrategyColumns,
+          ...(fantalabStrategyColumns.length >= 2
+            ? [SELECTED_AVERAGE_COLUMN_KEY]
+            : []),
+          ...fantalabStrategyColumns,
+        ]),
+      );
+
+      return {
+        ...current,
+        visibleColumnKeys,
+      };
+    });
   }
 
   function restoreDefaultColumns(): void {
@@ -1169,6 +1274,17 @@ export default function AuctionSettingsPanel({
           >
             Mostra tutte
           </button>
+
+          {settings.playerMode === "classic" && (
+            <button
+              type="button"
+              onClick={applyFantalabCreatorPreset}
+              style={secondaryButtonStyle}
+              title="Mostra le strategie dei creator Fantalab disponibili"
+            >
+              Asta Creator Fantalab
+            </button>
+          )}
 
           <button
             type="button"
