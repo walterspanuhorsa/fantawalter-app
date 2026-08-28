@@ -1,4 +1,4 @@
-// Versione 1.15
+// Versione 1.16
 "use client";
 
 import Link from "next/link";
@@ -25,12 +25,13 @@ import type { PlayerRow } from "@/lib/players";
 import {
   AUCTION_STORAGE_KEY,
   DEFAULT_VISIBLE_COLUMNS,
-  getAllColumns,
+  getListColumns,
   SELECTED_AVERAGE_COLUMN_KEY,
   type ColumnDefinition,
   type LeagueSize,
   type PersistedAuctionState,
   type PlayerMode,
+  type StrategyColumnMeta,
 } from "@/lib/auction-settings";
 
 import {
@@ -48,6 +49,7 @@ import {
 interface AuctionAssistantProps {
   initialPlayers: PlayerRow[];
   strategyColumns: string[];
+  strategyColumnMeta: StrategyColumnMeta[];
   lastUpdate: string | null;
   playerMode: PlayerMode;
   leagueSize: LeagueSize;
@@ -62,6 +64,14 @@ interface TooltipPointer {
   y: number;
   viewportWidth: number;
   viewportHeight: number;
+}
+
+interface HeaderTooltipState {
+  headline: string;
+  description: string;
+  interactionHelp: string;
+  left: number;
+  top: number;
 }
 
 const THEME_STORAGE_KEY = "fantawalter-theme-v1";
@@ -155,21 +165,31 @@ function getColumnDescription(
   }
 
   if (column.key.startsWith("strategia_")) {
-    return `Prezzo consigliato da ${column.label}, espresso in crediti in base al budget iniziale.`;
+    const expertName =
+      column.fullLabel ?? column.label;
+
+    return `Prezzo consigliato da ${expertName}, espresso in crediti in base al budget iniziale.`;
   }
 
   return column.label;
 }
 
-function getColumnHeaderTitle(
-  column: ColumnDefinition,
+function getColumnHeaderInteractionHelp(
   sortable: boolean,
 ): string {
-  const interactionHelp = sortable
+  return sortable
     ? "Clicca per ordinare. Trascina per spostare la colonna."
     : "Trascina per spostare la colonna.";
+}
 
-  return `${getColumnDescription(column)}\n\n${interactionHelp}`;
+function getColumnHeaderHeadline(
+  column: ColumnDefinition,
+): string {
+  if (column.key.startsWith("strategia_")) {
+    return column.fullLabel?.trim() || column.label;
+  }
+
+  return column.label;
 }
 
 function getTextValue(
@@ -629,6 +649,7 @@ function formatLastUpdate(value: string | null): string {
 export default function AuctionAssistant({
   initialPlayers,
   strategyColumns,
+  strategyColumnMeta,
   lastUpdate,
   playerMode,
   leagueSize,
@@ -683,6 +704,9 @@ export default function AuctionAssistant({
   const [hoveredPlayer, setHoveredPlayer] =
     useState<PlayerRow | null>(null);
 
+  const [headerTooltip, setHeaderTooltip] =
+    useState<HeaderTooltipState | null>(null);
+
   const [tooltipPointer, setTooltipPointer] =
     useState<TooltipPointer>({
       x: 0,
@@ -692,8 +716,12 @@ export default function AuctionAssistant({
     });
 
   const allColumns = useMemo<ColumnDefinition[]>(
-    () => getAllColumns(strategyColumns),
-    [strategyColumns],
+    () =>
+      getListColumns(
+        strategyColumns,
+        strategyColumnMeta,
+      ),
+    [strategyColumns, strategyColumnMeta],
   );
 
   const allowedColumnKeySet = useMemo(
@@ -1264,6 +1292,44 @@ const teams = useMemo(() => {
 
   function hidePlayerTooltip(): void {
     setHoveredPlayer(null);
+  }
+
+  function showHeaderTooltip(
+    event: ReactMouseEvent<HTMLElement>,
+    column: ColumnDefinition,
+    sortable: boolean,
+  ): void {
+    const anchorRect =
+      event.currentTarget.getBoundingClientRect();
+    const viewportPadding = 12;
+    const tooltipWidth = Math.min(
+      360,
+      Math.max(220, window.innerWidth - viewportPadding * 2),
+    );
+    const centeredLeft =
+      anchorRect.left +
+      anchorRect.width / 2 -
+      tooltipWidth / 2;
+    const maxLeft = Math.max(
+      viewportPadding,
+      window.innerWidth - tooltipWidth - viewportPadding,
+    );
+
+    setHeaderTooltip({
+      headline: getColumnHeaderHeadline(column),
+      description: getColumnDescription(column),
+      interactionHelp:
+        getColumnHeaderInteractionHelp(sortable),
+      left: Math.min(
+        Math.max(centeredLeft, viewportPadding),
+        maxLeft,
+      ),
+      top: anchorRect.bottom + 6,
+    });
+  }
+
+  function hideHeaderTooltip(): void {
+    setHeaderTooltip(null);
   }
 
   function changeSorting(columnName: string): void {
@@ -1847,6 +1913,7 @@ const teams = useMemo(() => {
                         )}
                         draggable
                         onDragStart={(event) => {
+                          setHeaderTooltip(null);
                           setDraggedColumnKey(column.key);
                           event.dataTransfer.effectAllowed = "move";
                         }}
@@ -1875,7 +1942,14 @@ const teams = useMemo(() => {
                               : "descending"
                             : "none"
                         }
-                        title={getColumnHeaderTitle(column, sortable)}
+                        onMouseEnter={(event) =>
+                          showHeaderTooltip(
+                            event,
+                            column,
+                            sortable,
+                          )
+                        }
+                        onMouseLeave={hideHeaderTooltip}
                         style={{
                           ...headerCellStyle,
                           cursor: "grab",
@@ -1889,7 +1963,19 @@ const teams = useMemo(() => {
                         >
                           ⋮⋮
                         </span>
-                        {column.label}
+                        {column.key ===
+                        SELECTED_AVERAGE_COLUMN_KEY ? (
+                          <span
+                            style={
+                              selectedAverageHeaderLabelStyle
+                            }
+                          >
+                            <span>Media</span>
+                            <span>Selez.</span>
+                          </span>
+                        ) : (
+                          column.label
+                        )}
                         {sortable && getSortIndicator(column.key)}
                       </th>
                     );
@@ -2084,6 +2170,59 @@ const teams = useMemo(() => {
               </tbody>
             </table>
           </div>
+
+          {headerTooltip && (
+            <div
+              role="tooltip"
+              style={{
+                position: "fixed",
+                left: `${headerTooltip.left}px`,
+                top: `${headerTooltip.top}px`,
+                zIndex: 3000,
+                width: "min(360px, calc(100vw - 24px))",
+                padding: "9px 11px",
+                borderWidth: "1px",
+                borderStyle: "solid",
+                borderColor: "var(--fw-border-strong)",
+                borderRadius: "7px",
+                background: "var(--fw-panel-bg)",
+                color: "var(--fw-text)",
+                boxShadow:
+                  "0 6px 18px rgba(15, 23, 42, 0.22)",
+                whiteSpace: "normal",
+                textAlign: "left",
+                fontSize: "0.78rem",
+                lineHeight: 1.35,
+                pointerEvents: "none",
+              }}
+            >
+              <strong
+                style={{
+                  display: "block",
+                  marginBottom: "4px",
+                  color: "var(--fw-heading)",
+                  fontWeight: 800,
+                }}
+              >
+                {headerTooltip.headline}
+              </strong>
+
+              <span style={{ display: "block" }}>
+                {headerTooltip.description}
+              </span>
+
+              <span
+                style={{
+                  display: "block",
+                  marginTop: "6px",
+                  color: "var(--fw-text-muted)",
+                  fontSize: "0.72rem",
+                }}
+              >
+                {headerTooltip.interactionHelp}
+              </span>
+            </div>
+          )}
         </section>
 
         <aside
@@ -2113,6 +2252,7 @@ const teams = useMemo(() => {
         viewportHeight={tooltipPointer.viewportHeight}
         initialBudget={initialBudget}
         strategyColumns={strategyColumns}
+        strategyColumnMeta={strategyColumnMeta}
         purchasedPlayers={purchasedPlayers}
         roleLimits={roleLimits}
         recordPurchasePrice={recordPurchasePrice}
@@ -2478,6 +2618,16 @@ const headerCellStyle: CSSProperties = {
   whiteSpace: "nowrap",
   userSelect: "none",
   transition: "opacity 0.15s ease",
+};
+
+const selectedAverageHeaderLabelStyle: CSSProperties = {
+  display: "inline-flex",
+  flexDirection: "column",
+  alignItems: "flex-start",
+  justifyContent: "center",
+  lineHeight: 1.05,
+  whiteSpace: "normal",
+  verticalAlign: "middle",
 };
 
 const columnDragHandleStyle: CSSProperties = {
