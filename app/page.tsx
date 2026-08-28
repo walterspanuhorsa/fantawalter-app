@@ -14,6 +14,7 @@ import {
   getStrategyColumns,
   loadLastUpdate,
   loadPlayers,
+  loadStrategyColumnMeta,
 } from "@/lib/players";
 
 export default async function Home() {
@@ -34,13 +35,18 @@ export default async function Home() {
       )?.value,
     );
 
-  const [players, lastUpdate] = await Promise.all([
+  const [
+    players,
+    lastUpdate,
+    strategyColumnMeta,
+  ] = await Promise.all([
     loadPlayers({
       playerMode,
       leagueSize,
       defenseModifier,
     }),
     loadLastUpdate(),
+    loadStrategyColumnMeta(playerMode),
   ]);
 
   const strategyColumns = getStrategyColumns(
@@ -52,6 +58,7 @@ return (
   <AuctionAssistant
     initialPlayers={players}
     strategyColumns={strategyColumns}
+    strategyColumnMeta={strategyColumnMeta}
     lastUpdate={lastUpdate}
     playerMode={playerMode}
     leagueSize={leagueSize}

@@ -8,9 +8,18 @@ import {
   type RoleLimits,
 } from "@/lib/squad";
 
+// STRATEGY_LABELS_V1
+export interface StrategyColumnMeta {
+  key: string;
+  fullLabel: string;
+  shortLabel: string;
+}
+
 export interface ColumnDefinition {
   key: string;
   label: string;
+  fullLabel?: string;
+  shortLabel?: string;
 }
 
 export type PlayerMode = "classic" | "mantra";
@@ -159,17 +168,85 @@ export function formatStrategyLabel(
     .join(" ");
 }
 
+function getStrategyMetaMap(
+  strategyColumnMeta: StrategyColumnMeta[],
+): Map<string, StrategyColumnMeta> {
+  return new Map(
+    strategyColumnMeta.map((item) => [item.key, item]),
+  );
+}
+
+export function getStrategyFullLabel(
+  columnName: string,
+  strategyColumnMeta: StrategyColumnMeta[] = [],
+): string {
+  const meta = getStrategyMetaMap(strategyColumnMeta).get(
+    columnName,
+  );
+
+  return meta?.fullLabel?.trim() || formatStrategyLabel(columnName);
+}
+
+export function getStrategyShortLabel(
+  columnName: string,
+  strategyColumnMeta: StrategyColumnMeta[] = [],
+): string {
+  const meta = getStrategyMetaMap(strategyColumnMeta).get(
+    columnName,
+  );
+
+  return (
+    meta?.shortLabel?.trim() ||
+    meta?.fullLabel?.trim() ||
+    formatStrategyLabel(columnName)
+  );
+}
+
 export function getAllColumns(
   strategyColumns: string[],
+  strategyColumnMeta: StrategyColumnMeta[] = [],
 ): ColumnDefinition[] {
+  const metaByKey = getStrategyMetaMap(strategyColumnMeta);
+
   return [
     ...BASE_COLUMNS,
     ...FANTACALCIO_COLUMNS,
-    ...strategyColumns.map((columnName) => ({
-      key: columnName,
-      label: formatStrategyLabel(columnName),
-    })),
+    ...strategyColumns.map((columnName) => {
+      const meta = metaByKey.get(columnName);
+      const fullLabel =
+        meta?.fullLabel?.trim() ||
+        formatStrategyLabel(columnName);
+      const shortLabel =
+        meta?.shortLabel?.trim() || fullLabel;
+
+      return {
+        key: columnName,
+        label: fullLabel,
+        fullLabel,
+        shortLabel,
+      };
+    }),
   ];
+}
+
+export function getListColumns(
+  strategyColumns: string[],
+  strategyColumnMeta: StrategyColumnMeta[] = [],
+): ColumnDefinition[] {
+  return getAllColumns(
+    strategyColumns,
+    strategyColumnMeta,
+  ).map((column) =>
+    column.key.startsWith("strategia_")
+      ? {
+          ...column,
+          label:
+            column.shortLabel ||
+            column.fullLabel ||
+            column.label,
+        }
+      : column,
+  );
 }
 
 function readPositiveNumber(

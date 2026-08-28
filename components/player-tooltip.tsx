@@ -11,7 +11,11 @@ import {
   parseNumericValue,
 } from "@/lib/budget";
 import type { PlayerRow } from "@/lib/players";
-import type { PlayerMode } from "@/lib/auction-settings";
+import {
+  getStrategyFullLabel,
+  type PlayerMode,
+  type StrategyColumnMeta,
+} from "@/lib/auction-settings";
 import {
   ROLE_PLURAL_LABELS,
   getPlayerKey,
@@ -30,6 +34,7 @@ interface PlayerTooltipProps {
   viewportHeight: number;
   initialBudget: number;
   strategyColumns: string[];
+  strategyColumnMeta: StrategyColumnMeta[];
   purchasedPlayers: PlayerRow[];
   roleLimits: RoleLimits;
   recordPurchasePrice: boolean;
@@ -240,16 +245,6 @@ function plainValue(value: unknown): string {
   }
 
   return String(value);
-}
-
-function formatStrategyLabel(columnName: string): string {
-  return columnName
-    .replace(/^strategia_/, "")
-    .replace(/_(classic|mantra)$/i, "")
-    .split("_")
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
 }
 
 function normalizeText(value: unknown): string {
@@ -794,6 +789,7 @@ function getPotentialPurchaseAlerts(
 function buildPriceDetails(
   player: PlayerRow,
   strategyColumns: string[],
+  strategyColumnMeta: StrategyColumnMeta[],
   initialBudget: number,
 ): DetailItem[] {
   const details: DetailItem[] = [
@@ -813,7 +809,10 @@ function buildPriceDetails(
 
   for (const columnName of strategyColumns) {
     details.push({
-      label: formatStrategyLabel(columnName),
+      label: getStrategyFullLabel(
+        columnName,
+        strategyColumnMeta,
+      ),
       value: formatPlayerValue(
         player[columnName],
         columnName,
@@ -943,6 +942,7 @@ export default function PlayerTooltip({
   viewportHeight,
   initialBudget,
   strategyColumns,
+  strategyColumnMeta,
   purchasedPlayers,
   roleLimits,
   recordPurchasePrice,
@@ -969,6 +969,7 @@ export default function PlayerTooltip({
   const priceAndStrategyDetails = buildPriceDetails(
     player,
     strategyColumns,
+    strategyColumnMeta,
     initialBudget,
   );
 

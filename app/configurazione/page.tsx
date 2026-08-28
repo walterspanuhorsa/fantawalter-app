@@ -10,7 +10,10 @@ import {
   resolveLeagueSize,
   resolvePlayerMode,
 } from "@/lib/auction-settings";
-import { loadStrategyColumns } from "@/lib/players";
+import {
+  loadStrategyColumnMeta,
+  loadStrategyColumns,
+} from "@/lib/players";
 
 export const metadata: Metadata = {
   title: "Configurazione | FantaConsigliere",
@@ -36,12 +39,18 @@ export default async function ConfigurationPage() {
       )?.value,
     );
 
-  const strategyColumns =
-    await loadStrategyColumns(playerMode);
+  const [
+    strategyColumns,
+    strategyColumnMeta,
+  ] = await Promise.all([
+    loadStrategyColumns(playerMode),
+    loadStrategyColumnMeta(playerMode),
+  ]);
 
   return (
     <AuctionSettingsPanel
       strategyColumns={strategyColumns}
+      strategyColumnMeta={strategyColumnMeta}
       playerMode={playerMode}
       leagueSize={leagueSize}
       defenseModifier={defenseModifier}

@@ -30,6 +30,7 @@ import {
   type ColumnDefinition,
   type LeagueSize,
   type PlayerMode,
+  type StrategyColumnMeta,
 } from "@/lib/auction-settings";
 import {
   ROLE_ORDER,
@@ -38,6 +39,7 @@ import {
 
 interface AuctionSettingsPanelProps {
   strategyColumns: string[];
+  strategyColumnMeta: StrategyColumnMeta[];
   playerMode: PlayerMode;
   leagueSize: LeagueSize;
   defenseModifier: boolean;
@@ -169,6 +171,7 @@ function writeCookie(
 
 export default function AuctionSettingsPanel({
   strategyColumns,
+  strategyColumnMeta,
   playerMode,
   leagueSize,
   defenseModifier,
@@ -192,8 +195,12 @@ export default function AuctionSettingsPanel({
     useState<SettingsSection>("general");
 
   const allColumns = useMemo(
-    () => getAllColumns(strategyColumns),
-    [strategyColumns],
+    () =>
+      getAllColumns(
+        strategyColumns,
+        strategyColumnMeta,
+      ),
+    [strategyColumns, strategyColumnMeta],
   );
 
   const strategyColumnKeySet = useMemo(
