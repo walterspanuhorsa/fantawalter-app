@@ -1,4 +1,4 @@
-// Versione 1.15
+// Versione 1.16
 import type { CSSProperties } from "react";
 
 import { formatPlayerValue, parseNumericValue } from "@/lib/budget";
@@ -254,9 +254,11 @@ const perceptionDotStyle: CSSProperties = {
 
 const notesContainerStyle: CSSProperties = {
   display: "inline-flex",
-  flexWrap: "wrap",
+  flexWrap: "nowrap",
   alignItems: "center",
   gap: "4px",
+  width: "max-content",
+  whiteSpace: "nowrap",
   verticalAlign: "middle",
 };
 
