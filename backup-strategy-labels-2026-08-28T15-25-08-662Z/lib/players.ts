@@ -8,7 +8,6 @@ import {
   resolvePlayerMode,
   type LeagueSize,
   type PlayerMode,
-  type StrategyColumnMeta,
 } from "@/lib/auction-settings";
 
 export type PlayerRow = Record<string, unknown>;
@@ -33,7 +32,6 @@ interface StrategyRow extends Record<string, unknown> {
   prezzo?: unknown;
   budget?: unknown;
   esperto?: unknown;
-  short_label?: unknown;
 }
 
 const PAGE_SIZE = 1000;
@@ -211,16 +209,10 @@ function robustAverage(values: number[]): number | null {
 
 async function loadTableRows<T extends Record<string, unknown>>(
   tableName: string,
-  orderColumns: string | string[] = [],
+  orderColumn?: string,
 ): Promise<T[]> {
   const rows: T[] = [];
   let from = 0;
-
-  const normalizedOrderColumns = Array.isArray(orderColumns)
-    ? orderColumns
-    : orderColumns
-      ? [orderColumns]
-      : [];
 
   while (true) {
     const to = from + PAGE_SIZE - 1;
@@ -230,12 +222,7 @@ async function loadTableRows<T extends Record<string, unknown>>(
       .from(tableName)
       .select("*");
 
-    /*
-     * La paginazione con range/offset richiede un ordinamento
-     * deterministico. Una sola colonna non basta quando contiene
-     * valori ripetuti (es. una riga per creator per lo stesso nome).
-     */
-    for (const orderColumn of normalizedOrderColumns) {
+    if (orderColumn) {
       query = query.order(orderColumn, {
         ascending: true,
       });
@@ -401,7 +388,7 @@ async function loadStrategyRows(
   try {
     return await loadTableRows<StrategyRow>(
       tableName,
-      ["nome", "esperto"],
+      "nome",
     );
   } catch (error) {
     const message =
@@ -553,75 +540,29 @@ export async function loadPlayers(
   });
 }
 
-function normalizeStrategyLabel(value: unknown): string {
-  return String(value ?? "")
-    .normalize("NFC")
-    .trim()
-    .replace(/\s+/g, " ");
-}
-
-export async function loadStrategyColumnMeta(
-  requestedMode: PlayerMode | string = "classic",
-): Promise<StrategyColumnMeta[]> {
-  const mode = resolvePlayerMode(requestedMode);
-  const rows = await loadStrategyRows(mode);
-  const metaByKey = new Map<string, StrategyColumnMeta>();
-
-  for (const row of rows) {
-    const fullLabel = normalizeStrategyLabel(row.esperto);
-    const expertSlug = strategySlug(fullLabel);
-
-    if (!fullLabel || !expertSlug) {
-      continue;
-    }
-
-    const key = `strategia_${expertSlug}_${mode}`;
-    const rawShortLabel = normalizeStrategyLabel(
-      row.short_label,
-    );
-    const existing = metaByKey.get(key);
-
-    if (!existing) {
-      metaByKey.set(key, {
-        key,
-        fullLabel,
-        shortLabel: rawShortLabel || fullLabel,
-      });
-      continue;
-    }
-
-    /*
-     * Le tabelle contengono normalmente una riga per giocatore:
-     * per lo stesso esperto i metadati si ripetono. Se la prima
-     * riga non aveva short_label ma una successiva sì, privilegiamo
-     * il valore esplicito.
-     */
-    if (
-      existing.shortLabel === existing.fullLabel &&
-      rawShortLabel
-    ) {
-      existing.shortLabel = rawShortLabel;
-    }
-  }
-
-  return Array.from(metaByKey.values()).sort(
-    (first, second) =>
-      first.fullLabel.localeCompare(
-        second.fullLabel,
-        "it",
-        { sensitivity: "base" },
-      ),
-  );
-}
-
 export async function loadStrategyColumns(
   requestedMode: PlayerMode | string = "classic",
 ): Promise<string[]> {
-  const metadata = await loadStrategyColumnMeta(
-    requestedMode,
-  );
+  const mode = resolvePlayerMode(requestedMode);
+  const rows = await loadStrategyRows(mode);
+  const columns = new Set<string>();
 
-  return metadata.map((item) => item.key);
+  for (const row of rows) {
+    const expertSlug = strategySlug(row.esperto);
+
+    if (expertSlug) {
+      columns.add(
+        `strategia_${expertSlug}_${mode}`,
+      );
+    }
+  }
+
+  return Array.from(columns).sort(
+    (first, second) =>
+      first.localeCompare(second, "it", {
+        sensitivity: "base",
+      }),
+  );
 }
 
 export async function loadLastUpdate(): Promise<string | null> {
