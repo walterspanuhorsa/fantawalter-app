@@ -1,4 +1,4 @@
-// Versione 1.19
+// Versione 1.20
 "use client";
 
 // TOOLTIP_LAYOUT_V7: rimossi i separatori ridondanti tra dati anagrafici e suggerimenti; layout compatto invariato.
@@ -12,7 +12,7 @@ import {
 } from "@/lib/budget";
 import type { PlayerRow } from "@/lib/players";
 import {
-  getStrategyFullLabel,
+  getStrategyShortLabel,
   type PlayerMode,
   type StrategyColumnMeta,
 } from "@/lib/auction-settings";
@@ -809,7 +809,7 @@ function buildPriceDetails(
 
   for (const columnName of strategyColumns) {
     details.push({
-      label: getStrategyFullLabel(
+      label: getStrategyShortLabel(
         columnName,
         strategyColumnMeta,
       ),

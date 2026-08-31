@@ -1,4 +1,4 @@
-// Versione 1.12
+// Versione 1.13
 import "server-only";
 
 import { supabase } from "@/lib/supabase";
@@ -34,6 +34,12 @@ interface StrategyRow extends Record<string, unknown> {
   budget?: unknown;
   esperto?: unknown;
   short_label?: unknown;
+}
+
+interface ExpertMapRow extends Record<string, unknown> {
+  column_key?: unknown;
+  short_label?: unknown;
+  full_label?: unknown;
 }
 
 const PAGE_SIZE = 1000;
@@ -564,43 +570,72 @@ export async function loadStrategyColumnMeta(
   requestedMode: PlayerMode | string = "classic",
 ): Promise<StrategyColumnMeta[]> {
   const mode = resolvePlayerMode(requestedMode);
-  const rows = await loadStrategyRows(mode);
+  const [rows, expertMapRows] = await Promise.all([
+    loadStrategyRows(mode),
+    loadTableRows<ExpertMapRow>(
+      "esperti_map",
+      "column_key",
+    ),
+  ]);
+
+  const expertLabelsByColumnKey = new Map<
+    string,
+    {
+      shortLabel: string;
+      fullLabel: string;
+    }
+  >();
+
+  for (const mapRow of expertMapRows) {
+    const columnKey = normalizeStrategyLabel(
+      mapRow.column_key,
+    );
+
+    if (!columnKey) {
+      continue;
+    }
+
+    expertLabelsByColumnKey.set(columnKey, {
+      shortLabel: normalizeStrategyLabel(
+        mapRow.short_label,
+      ),
+      fullLabel: normalizeStrategyLabel(
+        mapRow.full_label,
+      ),
+    });
+  }
+
   const metaByKey = new Map<string, StrategyColumnMeta>();
 
   for (const row of rows) {
-    const fullLabel = normalizeStrategyLabel(row.esperto);
-    const expertSlug = strategySlug(fullLabel);
+    const expert = normalizeStrategyLabel(row.esperto);
+    const expertSlug = strategySlug(expert);
 
-    if (!fullLabel || !expertSlug) {
+    if (!expert || !expertSlug) {
       continue;
     }
 
     const key = `strategia_${expertSlug}_${mode}`;
-    const rawShortLabel = normalizeStrategyLabel(
-      row.short_label,
-    );
-    const existing = metaByKey.get(key);
+    const mappedLabels =
+      expertLabelsByColumnKey.get(expert);
 
-    if (!existing) {
+    /*
+     * Fonte canonica delle etichette: esperti_map.
+     * Se la corrispondenza esperto -> column_key non esiste,
+     * oppure il singolo valore mappato è vuoto/null, il fallback
+     * resta SEMPRE il campo esperto di strategieall_*.
+     */
+    const fullLabel =
+      mappedLabels?.fullLabel || expert;
+    const shortLabel =
+      mappedLabels?.shortLabel || expert;
+
+    if (!metaByKey.has(key)) {
       metaByKey.set(key, {
         key,
         fullLabel,
-        shortLabel: rawShortLabel || fullLabel,
+        shortLabel,
       });
-      continue;
-    }
-
-    /*
-     * Le tabelle contengono normalmente una riga per giocatore:
-     * per lo stesso esperto i metadati si ripetono. Se la prima
-     * riga non aveva short_label ma una successiva sì, privilegiamo
-     * il valore esplicito.
-     */
-    if (
-      existing.shortLabel === existing.fullLabel &&
-      rawShortLabel
-    ) {
-      existing.shortLabel = rawShortLabel;
     }
   }
 
