@@ -1,4 +1,4 @@
-// Versione 1.13
+// Versione 1.14
 import "server-only";
 
 import { supabase } from "@/lib/supabase";
@@ -40,6 +40,17 @@ interface ExpertMapRow extends Record<string, unknown> {
   column_key?: unknown;
   short_label?: unknown;
   full_label?: unknown;
+}
+
+interface InjuryRow extends Record<string, unknown> {
+  nome?: unknown;
+  indicatore_giornata?: unknown;
+  descrizione?: unknown;
+}
+
+interface InjuryData {
+  indicatoreGiornata: string;
+  descrizione: string;
 }
 
 const PAGE_SIZE = 1000;
@@ -398,6 +409,50 @@ async function loadPmaMap(
   }
 }
 
+async function loadInjuryMap(): Promise<Map<string, InjuryData>> {
+  try {
+    const rows = await loadTableRows<InjuryRow>(
+      "infortunati_import",
+      "nome",
+    );
+    const injuriesByPlayer = new Map<string, InjuryData>();
+
+    for (const row of rows) {
+      const playerKey = normalizePlayerName(row.nome);
+      const indicatoreGiornata = String(
+        row.indicatore_giornata ?? "",
+      ).trim();
+
+      /*
+       * Una riga senza nome o senza giornata non identifica un
+       * infortunio utilizzabile dall'interfaccia.
+       */
+      if (!playerKey || !indicatoreGiornata) {
+        continue;
+      }
+
+      injuriesByPlayer.set(playerKey, {
+        indicatoreGiornata,
+        descrizione: String(row.descrizione ?? "").trim(),
+      });
+    }
+
+    return injuriesByPlayer;
+  } catch (error) {
+    const message =
+      error && typeof error === "object"
+        ? String(
+            (error as Record<string, unknown>).message ??
+              error,
+          )
+        : String(error);
+
+    throw new Error(
+      `Errore nel caricamento di infortunati_import: ${message}`,
+    );
+  }
+}
+
 async function loadStrategyRows(
   requestedMode: PlayerMode | string,
 ): Promise<StrategyRow[]> {
@@ -531,10 +586,12 @@ export async function loadPlayers(
     stats,
     pmaByPlayer,
     strategyRows,
+    injuriesByPlayer,
   ] = await Promise.all([
     loadStats(),
     loadPmaMap(preferences),
     loadStrategyRows(preferences.playerMode),
+    loadInjuryMap(),
   ]);
 
   const strategyDataByPlayer =
@@ -549,10 +606,15 @@ export async function loadPlayers(
     );
     const strategyData =
       strategyDataByPlayer.get(playerKey) ?? {};
+    const injuryData = injuriesByPlayer.get(playerKey);
 
     return {
       ...player,
       pma: pmaByPlayer.get(playerKey) ?? null,
+      indicatore_giornata:
+        injuryData?.indicatoreGiornata ?? null,
+      descrizione_infortunio:
+        injuryData?.descrizione ?? null,
       media_strategie: null,
       ...strategyData,
     };

@@ -1,4 +1,4 @@
-// Versione 1.16
+// Versione 1.18
 import type { CSSProperties } from "react";
 
 import { formatPlayerValue, parseNumericValue } from "@/lib/budget";
@@ -127,6 +127,20 @@ function getPlayerNotes(player: PlayerRow): string[] {
   return notes;
 }
 
+function getInjuryTooltip(player: PlayerRow): string {
+  const description = normalizeNote(player.descrizione_infortunio);
+  const recoveryRound = normalizeNote(player.indicatore_giornata);
+
+  return [
+    description,
+    recoveryRound
+      ? `Giornata di recupero: ${recoveryRound}`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 function formatPercentage(value: number): string {
   return value.toLocaleString("it-IT", {
     minimumFractionDigits: 0,
@@ -190,13 +204,29 @@ export default function PlayerCell({
 }: PlayerCellProps) {
   if (columnName === "note") {
     const notes = getPlayerNotes(player);
+    const injuryTooltip = getInjuryTooltip(player);
+    const isInjured = Boolean(
+      normalizeNote(player.indicatore_giornata),
+    );
 
-    if (notes.length === 0) {
+    if (notes.length === 0 && !isInjured) {
       return "-";
     }
 
     return (
       <span style={notesContainerStyle}>
+        {isInjured && (
+          <span
+            title={injuryTooltip}
+            aria-label={injuryTooltip}
+            style={{
+              ...noteBadgeStyle,
+              ...injuryBadgeStyle,
+            }}
+          >
+            INFORTUNATO
+          </span>
+        )}
         {notes.map((note, index) => {
           const tone = getNoteTone(note);
           const colors = NOTE_TONE_COLORS[tone];
@@ -267,10 +297,24 @@ const noteBadgeStyle: CSSProperties = {
   alignItems: "center",
   minHeight: "18px",
   padding: "2px 5px",
-  border: "1px solid",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#94a3b8",
   borderRadius: "5px",
   fontSize: "10px",
   fontWeight: 600,
   lineHeight: 1.15,
   whiteSpace: "nowrap",
+};
+
+const injuryBadgeStyle: CSSProperties = {
+  borderColor: "#991b1b",
+  background: "#dc2626",
+  color: "#ffffff",
+  minHeight: "16px",
+  padding: "1px 4px",
+  fontSize: "9px",
+  fontWeight: 800,
+  letterSpacing: "0.03em",
+  cursor: "help",
 };

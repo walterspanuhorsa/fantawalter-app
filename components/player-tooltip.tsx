@@ -1,4 +1,4 @@
-// Versione 1.20
+// Versione 1.22
 "use client";
 
 // TOOLTIP_LAYOUT_V7: rimossi i separatori ridondanti tra dati anagrafici e suggerimenti; layout compatto invariato.
@@ -309,14 +309,25 @@ function getPotentialPurchaseAlerts(
 ): PurchaseAlert[] {
   const alerts: PurchaseAlert[] = [];
   const role = getPlayerRole(playerToAdd);
+  const recoveryRound = String(
+    playerToAdd.indicatore_giornata ?? "",
+  ).trim();
+
+  if (recoveryRound) {
+    alerts.push({
+      level: "red",
+      critical: true,
+      text: `Infortunato fino alla ${recoveryRound}° giornata`,
+    });
+  }
 
   if (!role) {
-    return [
-      {
-        level: "red",
-        text: "Il giocatore non ha un ruolo valido.",
-      },
-    ];
+    alerts.push({
+      level: "red",
+      text: "Il giocatore non ha un ruolo valido.",
+    });
+
+    return alerts;
   }
 
   const temporarySquad = [...purchasedPlayers, playerToAdd];

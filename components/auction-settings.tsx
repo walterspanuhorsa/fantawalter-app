@@ -1,4 +1,4 @@
-// Versione 1.15
+// Versione 1.16
 "use client";
 
 // AUCTION_SETTINGS_BORDER_FIX_V1: evita mix border/borderColor nei pulsanti dinamici.
@@ -160,6 +160,72 @@ function formatPercentage(value: number): string {
   })}%`;
 }
 
+type RoleBudgetInputs = Record<PlayerRole, string>;
+
+function createRoleBudgetInputs(
+  roleBudgets: AuctionSettings["roleBudgets"],
+): RoleBudgetInputs {
+  return ROLE_ORDER.reduce<RoleBudgetInputs>(
+    (inputs, role) => {
+      inputs[role] = String(roleBudgets[role]);
+      return inputs;
+    },
+    { P: "", D: "", C: "", A: "" },
+  );
+}
+
+function formatRoleBudgetPercentageInput(
+  roleBudget: number,
+  initialBudget: number,
+): string {
+  if (initialBudget <= 0) {
+    return "";
+  }
+
+  return String(
+    Math.round(
+      (roleBudget / initialBudget) * 1000,
+    ) / 10,
+  );
+}
+
+function createRoleBudgetPercentageInputs(
+  roleBudgets: AuctionSettings["roleBudgets"],
+  initialBudget: number,
+): RoleBudgetInputs {
+  return ROLE_ORDER.reduce<RoleBudgetInputs>(
+    (inputs, role) => {
+      inputs[role] =
+        formatRoleBudgetPercentageInput(
+          roleBudgets[role],
+          initialBudget,
+        );
+      return inputs;
+    },
+    { P: "", D: "", C: "", A: "" },
+  );
+}
+
+function refreshRoleBudgetPercentageInputs(
+  currentInputs: RoleBudgetInputs,
+  roleBudgets: AuctionSettings["roleBudgets"],
+  initialBudget: number,
+): RoleBudgetInputs {
+  return ROLE_ORDER.reduce<RoleBudgetInputs>(
+    (inputs, role) => {
+      inputs[role] =
+        currentInputs[role].trim() === ""
+          ? ""
+          : formatRoleBudgetPercentageInput(
+              roleBudgets[role],
+              initialBudget,
+            );
+      return inputs;
+    },
+    { P: "", D: "", C: "", A: "" },
+  );
+}
+
 function writeCookie(
   name: string,
   value: string,
@@ -182,6 +248,30 @@ export default function AuctionSettingsPanel({
     useState<AuctionSettings>(
       () => createDefaultAuctionSettings(),
     );
+
+  const [initialBudgetInput, setInitialBudgetInput] =
+    useState(() =>
+      String(
+        createDefaultAuctionSettings().initialBudget,
+      ),
+    );
+
+  const [roleBudgetInputs, setRoleBudgetInputs] =
+    useState<RoleBudgetInputs>(() => {
+      const defaults = createDefaultAuctionSettings();
+      return createRoleBudgetInputs(defaults.roleBudgets);
+    });
+
+  const [
+    roleBudgetPercentageInputs,
+    setRoleBudgetPercentageInputs,
+  ] = useState<RoleBudgetInputs>(() => {
+    const defaults = createDefaultAuctionSettings();
+    return createRoleBudgetPercentageInputs(
+      defaults.roleBudgets,
+      defaults.initialBudget,
+    );
+  });
 
   const [storageReady, setStorageReady] =
     useState(false);
@@ -276,6 +366,15 @@ export default function AuctionSettingsPanel({
   const unallocatedRoleBudgetPercentage =
     100 - totalPlannedRoleBudgetPercentage;
 
+  const initialBudgetMissing =
+    initialBudgetInput.trim() === "";
+
+  const missingRoleBudgetValues = ROLE_ORDER.filter(
+    (role) =>
+      roleBudgetInputs[role].trim() === "" ||
+      roleBudgetPercentageInputs[role].trim() === "",
+  );
+
 
   useEffect(() => {
     const animationFrameId =
@@ -293,12 +392,28 @@ export default function AuctionSettingsPanel({
          * Le tre preferenze che determinano i dati caricati
          * server-side arrivano dai cookie e sono quindi autorevoli.
          */
-        setSettings({
+        const nextSettings = {
           ...resolved,
           playerMode,
           leagueSize,
           defenseModifier,
-        });
+        };
+
+        setSettings(nextSettings);
+        setInitialBudgetInput(
+          String(nextSettings.initialBudget),
+        );
+        setRoleBudgetInputs(
+          createRoleBudgetInputs(
+            nextSettings.roleBudgets,
+          ),
+        );
+        setRoleBudgetPercentageInputs(
+          createRoleBudgetPercentageInputs(
+            nextSettings.roleBudgets,
+            nextSettings.initialBudget,
+          ),
+        );
 
         setStorageReady(true);
       });
@@ -478,60 +593,119 @@ export default function AuctionSettingsPanel({
   }
 
   function changeInitialBudget(
-    value: number,
+    rawValue: string,
   ): void {
-    const nextInitialBudget =
-      Number.isFinite(value) &&
-      value > 0
-        ? Math.trunc(value)
-        : 1;
+    setInitialBudgetInput(rawValue);
+
+    if (rawValue.trim() === "") {
+      return;
+    }
+
+    const parsedValue = Number(rawValue);
+
+    if (
+      !Number.isFinite(parsedValue) ||
+      parsedValue <= 0
+    ) {
+      return;
+    }
+
+    const nextInitialBudget = Math.trunc(parsedValue);
+
+    setInitialBudgetInput(String(nextInitialBudget));
 
     updateSettings((current) => ({
       ...current,
       initialBudget:
         nextInitialBudget,
     }));
-  }
 
-  function changeRoleBudgetPercentage(
-    role: PlayerRole,
-    percentage: number,
-  ): void {
-    const normalizedPercentage =
-      Number.isFinite(percentage) &&
-      percentage >= 0
-        ? percentage
-        : 0;
-
-    changeRoleBudget(
-      role,
-      Math.max(
-        0,
-        Math.round(
-          (
-            settings.initialBudget *
-            normalizedPercentage
-          ) / 100,
+    setRoleBudgetPercentageInputs(
+      (currentInputs) =>
+        refreshRoleBudgetPercentageInputs(
+          currentInputs,
+          settings.roleBudgets,
+          nextInitialBudget,
         ),
-      ),
     );
   }
 
-  function getRoleBudgetPercentage(
+  function changeRoleBudgetInput(
     role: PlayerRole,
-  ): number {
-    if (
-      settings.initialBudget <= 0
-    ) {
-      return 0;
+    rawValue: string,
+  ): void {
+    setRoleBudgetInputs((current) => ({
+      ...current,
+      [role]: rawValue,
+    }));
+
+    if (rawValue.trim() === "") {
+      return;
     }
 
-    return (
-      (
-        settings.roleBudgets[role] /
-        settings.initialBudget
-      ) * 100
+    const parsedValue = Number(rawValue);
+
+    if (
+      !Number.isFinite(parsedValue) ||
+      parsedValue < 0
+    ) {
+      return;
+    }
+
+    const nextRoleBudget = Math.trunc(parsedValue);
+
+    setRoleBudgetInputs((current) => ({
+      ...current,
+      [role]: String(nextRoleBudget),
+    }));
+
+    changeRoleBudget(role, nextRoleBudget);
+    setRoleBudgetPercentageInputs((current) => ({
+      ...current,
+      [role]: formatRoleBudgetPercentageInput(
+        nextRoleBudget,
+        settings.initialBudget,
+      ),
+    }));
+  }
+
+  function changeRoleBudgetPercentageInput(
+    role: PlayerRole,
+    rawValue: string,
+  ): void {
+    setRoleBudgetPercentageInputs((current) => ({
+      ...current,
+      [role]: rawValue,
+    }));
+
+    if (rawValue.trim() === "") {
+      return;
+    }
+
+    const parsedValue = Number(rawValue);
+
+    if (
+      !Number.isFinite(parsedValue) ||
+      parsedValue < 0
+    ) {
+      return;
+    }
+
+    const nextRoleBudget = Math.max(
+      0,
+      Math.round(
+        (
+          settings.initialBudget *
+          parsedValue
+        ) / 100,
+      ),
     );
+
+    changeRoleBudget(role, nextRoleBudget);
+    setRoleBudgetInputs((current) => ({
+      ...current,
+      [role]: String(nextRoleBudget),
+    }));
   }
 
   function toggleColumn(
@@ -768,6 +942,20 @@ export default function AuctionSettingsPanel({
       createDefaultAuctionSettings();
 
     setSettings(defaults);
+    setInitialBudgetInput(
+      String(defaults.initialBudget),
+    );
+    setRoleBudgetInputs(
+      createRoleBudgetInputs(
+        defaults.roleBudgets,
+      ),
+    );
+    setRoleBudgetPercentageInputs(
+      createRoleBudgetPercentageInputs(
+        defaults.roleBudgets,
+        defaults.initialBudget,
+      ),
+    );
 
     writeCookie(
       PLAYER_MODE_COOKIE,
@@ -893,21 +1081,41 @@ export default function AuctionSettingsPanel({
               </span>
             </div>
 
-            <input
-              type="number"
-              min={1}
-              step={1}
-              value={
-                settings.initialBudget
-              }
-              onChange={(event) =>
-                changeInitialBudget(
-                  event.currentTarget
-                    .valueAsNumber,
-                )
-              }
-              style={numberInputStyle}
-            />
+            <div style={budgetInputAreaStyle}>
+              <input
+                type="number"
+                min={1}
+                step={1}
+                value={initialBudgetInput}
+                onChange={(event) =>
+                  changeInitialBudget(
+                    event.currentTarget.value,
+                  )
+                }
+                aria-invalid={initialBudgetMissing}
+                aria-describedby={
+                  initialBudgetMissing
+                    ? "initial-budget-warning"
+                    : undefined
+                }
+                style={{
+                  ...numberInputStyle,
+                  ...(initialBudgetMissing
+                    ? invalidInputStyle
+                    : {}),
+                }}
+              />
+
+              {initialBudgetMissing && (
+                <span
+                  id="initial-budget-warning"
+                  role="alert"
+                  style={validationNoticeStyle}
+                >
+                  Il valore di Budget è obbligatorio per permettere al sistema di calcolare i prezzi consigliati dei giocatori
+                </span>
+              )}
+            </div>
           </section>
 
           <section style={settingBlockStyle}>
@@ -1188,37 +1396,26 @@ export default function AuctionSettingsPanel({
                           type="number"
                           min={0}
                           step={1}
-                          value={
-                            settings
-                              .roleBudgets[
-                              role
-                            ]
-                          }
+                          value={roleBudgetInputs[role]}
                           onChange={(
                             event,
-                          ) => {
-                            const value =
-                              event
-                                .currentTarget
-                                .valueAsNumber;
-
-                            changeRoleBudget(
+                          ) =>
+                            changeRoleBudgetInput(
                               role,
-                              Number.isFinite(
-                                value,
-                              )
-                                ? Math.max(
-                                    0,
-                                    Math.trunc(
-                                      value,
-                                    ),
-                                  )
-                                : 0,
-                            );
-                          }}
-                          style={
-                            compactInputStyle
+                              event.currentTarget.value,
+                            )
                           }
+                          aria-invalid={
+                            roleBudgetInputs[role].trim() === ""
+                          }
+                          style={{
+                            ...compactInputStyle,
+                            ...(roleBudgetInputs[
+                              role
+                            ].trim() === ""
+                              ? invalidInputStyle
+                              : {}),
+                          }}
                         />
                       </label>
 
@@ -1234,30 +1431,47 @@ export default function AuctionSettingsPanel({
                           type="number"
                           min={0}
                           step={0.1}
-                          value={Math.round(
-                            getRoleBudgetPercentage(
-                              role,
-                            ) * 10,
-                          ) / 10}
+                          value={
+                            roleBudgetPercentageInputs[
+                              role
+                            ]
+                          }
                           onChange={(
                             event,
                           ) =>
-                            changeRoleBudgetPercentage(
+                            changeRoleBudgetPercentageInput(
                               role,
-                              event
-                                .currentTarget
-                                .valueAsNumber,
+                              event.currentTarget.value,
                             )
                           }
-                          style={
-                            compactInputStyle
+                          aria-invalid={
+                            roleBudgetPercentageInputs[
+                              role
+                            ].trim() === ""
                           }
+                          style={{
+                            ...compactInputStyle,
+                            ...(roleBudgetPercentageInputs[
+                              role
+                            ].trim() === ""
+                              ? invalidInputStyle
+                              : {}),
+                          }}
                         />
                       </label>
                     </div>
                   ),
                 )}
               </div>
+
+              {missingRoleBudgetValues.length > 0 && (
+                <p
+                  role="alert"
+                  style={roleBudgetValidationNoticeStyle}
+                >
+                  Completa i valori vuoti del Budget previsto per ruolo.
+                </p>
+              )}
             </section>
           )}
         </div>
@@ -1858,11 +2072,37 @@ const numberInputStyle: CSSProperties = {
   width: "120px",
   minHeight: "40px",
   padding: "0 10px",
-  border: "1px solid var(--fw-border-strong)",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "var(--fw-border-strong)",
   borderRadius: "8px",
   background: "var(--fw-input-bg, var(--fw-panel-bg))",
   color: "var(--fw-text)",
   fontWeight: 800,
+};
+
+const budgetInputAreaStyle: CSSProperties = {
+  display: "grid",
+  justifyItems: "end",
+  gap: "8px",
+  width: "min(440px, 100%)",
+};
+
+const validationNoticeStyle: CSSProperties = {
+  maxWidth: "440px",
+  padding: "8px 10px",
+  border: "1px solid var(--fw-warning-border)",
+  borderRadius: "7px",
+  background: "var(--fw-warning-soft)",
+  color: "var(--fw-text-secondary)",
+  fontSize: "0.78rem",
+  lineHeight: 1.4,
+  textAlign: "left",
+};
+
+const invalidInputStyle: CSSProperties = {
+  borderColor: "var(--fw-warning-border)",
+  background: "var(--fw-warning-soft)",
 };
 
 const toggleButtonStyle: CSSProperties = {
@@ -1913,6 +2153,12 @@ const roleBudgetGridStyle: CSSProperties = {
   gap: "8px",
 };
 
+const roleBudgetValidationNoticeStyle: CSSProperties = {
+  ...validationNoticeStyle,
+  maxWidth: "none",
+  margin: "12px 0 0",
+};
+
 const roleBudgetRowStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "minmax(160px, 1fr) 120px 120px",
@@ -1941,7 +2187,9 @@ const compactInputStyle: CSSProperties = {
   width: "100%",
   minHeight: "38px",
   padding: "0 9px",
-  border: "1px solid var(--fw-border-strong)",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "var(--fw-border-strong)",
   borderRadius: "7px",
   background: "var(--fw-input-bg, var(--fw-panel-bg))",
   color: "var(--fw-text)",
